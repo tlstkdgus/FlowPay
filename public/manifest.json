@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "FlowPay",
+  "name": "FlowPay - 무기명 법인카드 혁신적 결제 관리 시스템",
+  "description": "무기명 법인카드의 근본적 한계를 해결하는 혁신적인 결제 관리 시스템",
   "icons": [
     {
       "src": "favicon.ico",
@@ -8,18 +9,22 @@
       "type": "image/x-icon"
     },
     {
-      "src": "logo192.png",
+      "src": "LOGO.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "logo512.png",
+      "src": "LOGO.png",
       "type": "image/png",
       "sizes": "512x512"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#14b8a6",
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "categories": ["business", "finance", "productivity"],
+  "lang": "ko",
+  "dir": "ltr"
 }

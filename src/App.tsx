@@ -6,6 +6,7 @@ import ReceiptUpload from './components/ReceiptUpload';
 import Analytics from './components/Analytics';
 import InvoiceGenerator from './components/InvoiceGenerator';
 import Sidebar from './components/Sidebar';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
             </Routes>
           </main>
         </div>
+        <PWAInstallPrompt />
       </div>
     </Router>
   );

@@ -144,12 +144,12 @@ const Dashboard: React.FC = () => {
               className={`card-gradient bg-gradient-to-br ${stat.bgGradient} border-0`}
             >
               <div className="flex items-center">
-                <div className={`icon-container bg-gradient-to-br ${stat.gradient} shadow-glow`}>
+                <div className={`icon-container bg-gradient-to-br ${stat.gradient} shadow-glow flex-shrink-0`}>
                   <stat.icon className="h-6 w-6" />
                 </div>
                 <div className="ml-4 flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-600 truncate">{stat.name}</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-gray-900">{stat.value}</p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">{stat.value}</p>
                   <p className="text-sm text-success-600 font-semibold">{stat.change}</p>
                 </div>
               </div>
@@ -184,8 +184,8 @@ const Dashboard: React.FC = () => {
                   transition={{ delay: index * 0.1 }}
                   className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-100 hover:shadow-medium transition-all duration-300"
                 >
-                  <div className="flex items-center space-x-3 min-w-0 flex-1">
-                    <div className="icon-container bg-gradient-to-br from-flow-500 to-flow-600">
+                  <div className="flex items-center space-x-3 min-w-0 flex-1 mr-4">
+                    <div className="icon-container bg-gradient-to-br from-flow-500 to-flow-600 flex-shrink-0">
                       <CreditCardIcon className="h-5 w-5 text-white" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -196,9 +196,11 @@ const Dashboard: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0 ml-3">
-                    <p className="font-bold text-gray-900 text-lg">₩{payment.amount.toLocaleString()}</p>
-                    <p className="text-xs text-flow-600 font-mono">{payment.flowId}</p>
+                  <div className="text-right flex-shrink-0 ml-3 min-w-0">
+                    <p className="font-bold text-gray-900 text-lg truncate">
+                      ₩{payment.amount.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-flow-600 font-mono truncate">{payment.flowId}</p>
                   </div>
                 </motion.div>
               ))}
