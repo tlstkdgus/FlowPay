@@ -1,18 +1,19 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   DocumentTextIcon, 
   CloudArrowUpIcon,
-  SparklesIcon,
   CheckCircleIcon,
   XMarkIcon,
   EyeIcon,
   EyeSlashIcon,
-  ArrowPathIcon,
-  MagnifyingGlassIcon,
-  DocumentMagnifyingGlassIcon
+  DocumentMagnifyingGlassIcon,
+  CameraIcon,
+  VideoCameraIcon,
+  PhotoIcon
 } from '@heroicons/react/24/outline';
 import Tesseract from 'tesseract.js';
+import { useNavigate } from 'react-router-dom';
 
 interface ReceiptData {
   id: string;
@@ -28,13 +29,20 @@ interface ReceiptData {
 }
 
 const ReceiptUpload: React.FC = () => {
+  const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState<string>('');
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [processingStep, setProcessingStep] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const processingSteps = [
     '이미지 업로드 중...',
@@ -58,6 +66,61 @@ const ReceiptUpload: React.FC = () => {
     }
   };
 
+  // 이미지 전처리 함수
+  const preprocessImage = async (imageData: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (ctx) {
+          // 이미지 크기 조정 (너무 크면 OCR 성능 저하)
+          const maxSize = 1200;
+          let { width, height } = img;
+          
+          if (width > maxSize || height > maxSize) {
+            if (width > height) {
+              height = (height * maxSize) / width;
+              width = maxSize;
+            } else {
+              width = (width * maxSize) / height;
+              height = maxSize;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          // 이미지 그리기
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // 그레이스케일 변환 (OCR 정확도 향상)
+          const imageData = ctx.getImageData(0, 0, width, height);
+          const data = imageData.data;
+          
+          for (let i = 0; i < data.length; i += 4) {
+            const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+            data[i] = gray;
+            data[i + 1] = gray;
+            data[i + 2] = gray;
+          }
+          
+          ctx.putImageData(imageData, 0, 0);
+          
+          // 대비 향상
+          ctx.filter = 'contrast(1.2) brightness(1.1)';
+          ctx.drawImage(canvas, 0, 0);
+          
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
+        } else {
+          resolve(imageData);
+        }
+      };
+      img.src = imageData;
+    });
+  };
+
   const processImage = async (imageData: string) => {
     setIsProcessing(true);
     setProcessingStep(0);
@@ -69,9 +132,12 @@ const ReceiptUpload: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      // Tesseract.js를 사용한 실제 OCR 처리
+      // 이미지 전처리
+      const processedImage = await preprocessImage(imageData);
+      
+      // Tesseract.js를 사용한 실제 OCR 처리 (최적화된 설정)
       const result = await Tesseract.recognize(
-        imageData,
+        processedImage,
         'kor+eng',
         {
           logger: m => console.log(m)
@@ -146,7 +212,6 @@ const ReceiptUpload: React.FC = () => {
 
   const classifyReceipt = (merchant: string, items: string): { department: string; category: string } => {
     const merchantLower = merchant.toLowerCase();
-    const itemsLower = items.toLowerCase();
     
     // 가맹점 기반 분류
     if (merchantLower.includes('스타벅스') || merchantLower.includes('카페') || merchantLower.includes('커피')) {
@@ -166,11 +231,64 @@ const ReceiptUpload: React.FC = () => {
     return { department: '관리부', category: '기타' };
   };
 
+  const startCamera = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment', // 후면 카메라 우선
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        } 
+      });
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+        setIsCameraActive(true);
+        setShowCamera(true);
+      }
+    } catch (error) {
+      console.error('카메라 접근 오류:', error);
+      alert('카메라에 접근할 수 없습니다. 권한을 확인해주세요.');
+    }
+  }, []);
+
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
+    setShowCamera(false);
+    setCapturedImage(null);
+  }, []);
+
+  const capturePhoto = useCallback(() => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d');
+      
+      if (context) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0);
+        
+        const imageData = canvas.toDataURL('image/jpeg', 0.8);
+        setCapturedImage(imageData);
+        setUploadedImage(imageData);
+        stopCamera();
+        processImage(imageData);
+      }
+    }
+  }, [stopCamera]);
+
   const handleRetry = () => {
     setUploadedImage(null);
     setExtractedText('');
     setReceiptData(null);
     setProcessingStep(0);
+    setCapturedImage(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -191,7 +309,7 @@ const ReceiptUpload: React.FC = () => {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">AI OCR 영수증 처리</h1>
           </div>
           <p className="text-gray-600">
-            영수증 이미지를 업로드하면 AI가 자동으로 텍스트를 추출하고 Flow ID와 연결하여 분류합니다.
+            영수증 이미지를 업로드하거나 카메라로 직접 촬영하여 AI가 자동으로 텍스트를 추출하고 Flow ID와 연결하여 분류합니다.
           </p>
         </motion.div>
 
@@ -205,22 +323,41 @@ const ReceiptUpload: React.FC = () => {
             <h2 className="text-xl font-semibold text-gray-900 mb-6">영수증 업로드</h2>
             
             {!uploadedImage ? (
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-flow-400 transition-colors">
-                <CloudArrowUpIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-4">영수증 이미지를 여기에 드래그하거나 클릭하여 업로드하세요</p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="btn-primary"
-                >
-                  이미지 선택
-                </button>
+              <div className="space-y-4">
+                {/* 카메라 촬영 버튼 */}
+                <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
+                  <div className="text-center">
+                    <CameraIcon className="h-12 w-12 text-blue-500 mx-auto mb-3" />
+                    <h3 className="text-lg font-semibold text-blue-900 mb-2">카메라로 촬영</h3>
+                    <p className="text-blue-700 text-sm mb-4">실시간으로 영수증을 촬영하여 즉시 처리</p>
+                    <button
+                      onClick={startCamera}
+                      className="btn-primary bg-blue-600 hover:bg-blue-700"
+                    >
+                      <VideoCameraIcon className="h-5 w-5 mr-2" />
+                      카메라 시작
+                    </button>
+                  </div>
+                </div>
+
+                {/* 파일 업로드 */}
+                <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-flow-400 transition-colors">
+                  <CloudArrowUpIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 mb-4">또는 기존 이미지 파일을 업로드하세요</p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="btn-secondary"
+                  >
+                    이미지 선택
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -262,7 +399,7 @@ const ReceiptUpload: React.FC = () => {
                   </button>
                   {receiptData && (
                     <button
-                      onClick={() => {/* 전표 생성 페이지로 이동 */}}
+                      onClick={() => {navigate('/receipt/create')}}
                       className="btn-success flex-1"
                     >
                       전표 생성
@@ -289,7 +426,7 @@ const ReceiptUpload: React.FC = () => {
                   className="text-center py-12"
                 >
                   <DocumentMagnifyingGlassIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">영수증을 업로드하면 AI가 자동으로 분석합니다.</p>
+                  <p className="text-gray-500">영수증을 업로드하거나 카메라로 촬영하면 AI가 자동으로 분석합니다.</p>
                 </motion.div>
               ) : (
                 <motion.div
@@ -365,46 +502,65 @@ const ReceiptUpload: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* OCR 정보 */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-8 card"
-        >
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">AI OCR 기술</h3>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <SparklesIcon className="h-5 w-5 text-blue-600" />
-              </div>
-              <h4 className="font-medium text-gray-900 mb-1">고정밀 인식</h4>
-              <p className="text-xs text-gray-600">
-                Tesseract.js 기반으로 한글과 영문을 정확하게 인식합니다
-              </p>
-            </div>
-            
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <DocumentTextIcon className="h-5 w-5 text-green-600" />
-              </div>
-              <h4 className="font-medium text-gray-900 mb-1">자동 분류</h4>
-              <p className="text-xs text-gray-600">
-                가맹점명과 상품 정보를 분석하여 부서와 카테고리를 자동 분류합니다
-              </p>
-            </div>
-            
-            <div className="text-center p-4 bg-purple-50 rounded-lg">
-              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <ArrowPathIcon className="h-5 w-5 text-purple-600" />
-              </div>
-              <h4 className="font-medium text-gray-900 mb-1">실시간 처리</h4>
-              <p className="text-xs text-gray-600">
-                업로드 즉시 AI가 분석하여 몇 초 만에 결과를 제공합니다
-              </p>
-            </div>
-          </div>
-        </motion.div>
+        {/* 카메라 모달 */}
+        <AnimatePresence>
+          {showCamera && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-2xl p-6 max-w-md w-full"
+              >
+                <div className="text-center mb-4">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">카메라 촬영</h3>
+                  <p className="text-gray-600 text-sm">영수증을 화면에 맞춰 촬영해주세요</p>
+                </div>
+                
+                <div className="relative mb-4">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full rounded-lg bg-gray-900"
+                  />
+                  <canvas ref={canvasRef} className="hidden" />
+                  
+                  {/* 촬영 가이드 */}
+                  <div className="absolute inset-0 border-2 border-white/50 border-dashed rounded-lg m-2 pointer-events-none">
+                    <div className="absolute top-2 left-2 text-white/70 text-xs bg-black/50 px-2 py-1 rounded">
+                      영수증 영역
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex space-x-3">
+                  <button
+                    onClick={stopCamera}
+                    className="btn-secondary flex-1"
+                  >
+                    <XMarkIcon className="h-5 w-5 mr-2" />
+                    취소
+                  </button>
+                  <button
+                    onClick={capturePhoto}
+                    className="btn-primary flex-1"
+                    disabled={!isCameraActive}
+                  >
+                    <PhotoIcon className="h-5 w-5 mr-2" />
+                    촬영
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
