@@ -1,106 +1,99 @@
-# FlowPay - 무기명 법인카드 혁신적 결제 관리 시스템
+# FlowPay
 
-## 🚀 프로젝트 개요
+무기명 법인카드의 익명성과 회계 자동화를 동시에 해결하는 결제·정산 관리 시스템입니다.
+Flow ID 기반으로 결제 → 자동 분류 → 전표 생성 → 세무 처리까지 끊김 없이 이어집니다.
 
-FlowPay는 무기명 법인카드의 근본적 한계를 해결하는 혁신적인 결제 관리 시스템입니다. Flow ID 기반의 익명성 보장과 1-Click 결제를 통해 완전 자동화된 회계 처리를 제공합니다.
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="FlowPay 대시보드" width="820" />
+</p>
 
-## ✨ 주요 기능
+<p align="center">
+  <a href="https://flowpay.vercel.app">데모 바로가기</a>
+</p>
 
-### 🔐 Flow ID 시스템
-- **익명성 보장**: 개인정보 없이 랜덤 토큰으로 사용자 식별
-- **1-Click 결제**: FIDO2 패스키를 통한 지문/Face ID 결제
-- **자동 분류**: 결제 시 부서와 프로젝트 자동 분류
+---
 
-### 💳 결제 시스템
-- **FlowPay 결제**: Flow ID 기반 1-Click 결제
-- **일반 PG 결제**: 다양한 결제 방식 지원
-- **실시간 워크플로우**: 결제부터 회계 처리까지 자동화
+## 개요
 
-### 📄 AI OCR 영수증 처리
-- **실제 OCR 기능**: Tesseract.js 기반 텍스트 추출
-- **자동 분류**: 가맹점명과 상품 정보 분석
-- **Flow ID 매칭**: 추출된 데이터와 Flow ID 연결
+법인카드를 여럿이 함께 쓰는 무기명 방식은 편리하지만, 누가 무엇에 썼는지 추적하기 어렵고
+회계 처리를 사람이 일일이 분류해야 하는 한계가 있습니다. FlowPay는 개인정보 대신 익명 토큰인
+**Flow ID**로 사용자를 식별해 개인정보 부담 없이 지출을 추적하고, 결제 시점에 부서·카테고리를
+자동 분류하여 전표와 세무 처리를 자동화합니다.
 
-### 📊 실시간 분석
-- **부서별 지출 현황**: 실시간 예산 사용률 모니터링
-- **카테고리별 분석**: 지출 패턴 분석
-- **트렌드 분석**: 월별 지출 트렌드 시각화
+## 주요 기능
 
-### 📋 자동 전표 생성
-- **실시간 생성**: Flow ID 기반 자동 전표 생성
-- **승인 워크플로우**: 부서별 승인자 자동 배정
-- **국세청 연동**: 승인된 전표의 자동 세무 처리
+- **Flow ID 결제** — 개인정보 없이 익명 토큰으로 사용자를 식별하고, FIDO2 패스키(지문·Face ID) 기반 1-Click 결제를 지원합니다.
+- **다양한 결제 수단** — FlowPay 간편결제와 카드·가상계좌·계좌이체·간편결제(네이버·카카오·토스)를 함께 제공합니다.
+- **영수증 OCR** — 카메라 촬영 또는 파일 업로드한 영수증을 Tesseract.js로 인식하고, 가맹점·금액·부서·카테고리를 자동 추출·분류합니다.
+- **실시간 분석** — 부서별 예산 사용률, 카테고리별 지출, 월별 트렌드를 한눈에 확인합니다.
+- **자동 전표** — Flow ID 기반으로 전표를 생성하고 승인/거부 워크플로우를 관리하며, 국세청(홈택스) 연동을 지향합니다.
+- **PWA** — 홈 화면 설치와 모바일 하단 탭 내비게이션을 지원해 앱처럼 사용할 수 있습니다.
 
-## 🛠 기술 스택
+## 화면
 
-- **Frontend**: React 18, TypeScript
-- **Styling**: Tailwind CSS, Framer Motion
-- **OCR**: Tesseract.js
-- **Icons**: Heroicons
-- **Routing**: React Router DOM
+| 실시간 분석 | 전표 생성 |
+| :---: | :---: |
+| <img src="docs/screenshots/analytics.png" width="420" /> | <img src="docs/screenshots/invoice.png" width="420" /> |
 
-## 🚀 배포
+| 영수증 OCR | 결제 (모바일) |
+| :---: | :---: |
+| <img src="docs/screenshots/receipt.png" width="420" /> | <img src="docs/screenshots/payment-mobile.png" width="230" /> |
 
-### GitHub
-- 저장소: [https://github.com/tlstkdgus/FlowPay.git](https://github.com/tlstkdgus/FlowPay.git)
+## 기술 스택
 
-### Vercel 배포
-- 프로덕션 URL: [https://flowpay.vercel.app](https://flowpay.vercel.app)
+- **프레임워크** — React 19, TypeScript
+- **스타일** — Tailwind CSS 3, Framer Motion
+- **라우팅** — React Router 7
+- **OCR** — Tesseract.js (`kor+eng`)
+- **아이콘** — Heroicons
+- **배포** — Vercel (PWA)
 
-## 📱 사용법
+## 디자인
 
-1. **대시보드**: 전체 시스템 개요 및 최근 결제 내역 확인
-2. **결제하기**: FlowPay 또는 일반 결제 방식으로 결제
-3. **영수증 업로드**: AI OCR로 영수증 자동 인식 및 분류
-4. **실시간 분석**: 부서별 지출 현황과 트렌드 분석
-5. **전표 생성**: 자동 생성된 전표 관리 및 승인
+Apple 스타일 가이드를 참고해 **무채색 기반 + teal 소량 강조**로 구성했습니다.
 
-## 🔧 개발 환경 설정
+- SF Pro 시스템 폰트 스택과 타이트한 자간
+- 넉넉한 여백, 얇은 보더와 은은한 그림자 (그라디언트·과한 그림자 배제)
+- 브랜드 컬러(teal)는 링크·활성 상태·강조에만 절제하여 사용
+- 라이트/데스크톱·모바일 반응형 (모바일 하단 탭 내비게이션)
+
+## 실행 방법
 
 ```bash
-# 저장소 클론
-git clone https://github.com/tlstkdgus/FlowPay.git
-cd FlowPay
-
 # 의존성 설치
 npm install
 
-# 개발 서버 실행
+# 개발 서버 (http://localhost:3000)
 npm start
 
-# 빌드
+# 프로덕션 빌드
 npm run build
 ```
 
-## 📁 프로젝트 구조
+## 프로젝트 구조
 
 ```
-flowpay/
-├── public/
-│   └── LOGO.png          # FlowPay 로고
+FlowPay/
+├── public/                  # 정적 파일, PWA 매니페스트, 로고
+├── docs/screenshots/        # README용 화면 캡처
 ├── src/
 │   ├── components/
-│   │   ├── Analytics.tsx     # 실시간 분석 페이지
-│   │   ├── Dashboard.tsx     # 메인 대시보드
-│   │   ├── InvoiceGenerator.tsx  # 전표 생성 페이지
-│   │   ├── Logo.tsx         # 로고 컴포넌트
-│   │   ├── PGPayment.tsx    # 결제 페이지
-│   │   ├── ReceiptUpload.tsx # OCR 영수증 처리
-│   │   └── Sidebar.tsx      # 사이드바 네비게이션
-│   ├── App.tsx             # 메인 앱 컴포넌트
-│   ├── index.css           # 글로벌 스타일
-│   └── index.tsx           # 앱 진입점
-├── tailwind.config.js      # Tailwind CSS 설정
-├── package.json           # 프로젝트 의존성
-└── vercel.json           # Vercel 배포 설정
+│   │   ├── Dashboard.tsx        # 대시보드 (지출 현황·내 카드·바로가기)
+│   │   ├── PGPayment.tsx        # 결제 (수단 선택·워크플로우)
+│   │   ├── ReceiptUpload.tsx    # 영수증 OCR
+│   │   ├── Analytics.tsx        # 실시간 회계 분석
+│   │   ├── InvoiceGenerator.tsx # 자동 전표 생성·승인
+│   │   ├── Sidebar.tsx          # 데스크톱 사이드바 + 모바일 탭바
+│   │   ├── Logo.tsx
+│   │   └── PWAInstallPrompt.tsx
+│   ├── App.tsx              # 라우팅·레이아웃
+│   ├── index.css           # 디자인 토큰·컴포넌트 클래스
+│   └── types/index.ts
+├── tailwind.config.js      # 색상·타이포·그림자 토큰
+└── vercel.json
 ```
 
-## 🎯 핵심 혁신
+## 배포
 
-1. **무기명 카드 문제 해결**: Flow ID로 익명성 유지하면서 사용자 추적
-2. **완전 자동화**: 결제부터 회계 처리까지 모든 과정 자동화
-3. **실시간 처리**: AI OCR과 실시간 분석으로 즉시 결과 제공
-4. **개인정보보호**: 개인정보 없이도 정확한 회계 처리 가능
-
-
-**FlowPay** - 무기명 법인카드의 혁신적 해결책 🚀
+- 저장소: <https://github.com/tlstkdgus/FlowPay>
+- 프로덕션: <https://flowpay.vercel.app>
