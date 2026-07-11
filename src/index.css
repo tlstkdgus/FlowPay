@@ -1,214 +1,162 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   html {
-    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     scroll-behavior: smooth;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+      'Helvetica Neue', Inter, 'Apple SD Gothic Neo', 'Pretendard', system-ui, sans-serif;
   }
-  
+
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-gray-50 text-gray-900 antialiased;
+    letter-spacing: -0.01em;
   }
-  
-  * {
-    @apply border-gray-200;
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.022em;
   }
 }
 
 @layer components {
+  /* ---------- 버튼 ---------- */
   .btn-primary {
-    @apply bg-gradient-to-r from-flow-500 to-flow-600 hover:from-flow-600 hover:to-flow-700 
-           text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 
-           shadow-soft hover:shadow-medium transform hover:scale-105 active:scale-95
-           focus:outline-none focus:ring-4 focus:ring-flow-200;
+    @apply inline-flex items-center justify-center bg-gray-900 text-white font-medium
+           py-3 px-6 rounded-full transition-all duration-200
+           hover:bg-black active:scale-[0.98]
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/30;
   }
-  
+
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-6 rounded-xl 
-           transition-all duration-300 shadow-soft hover:shadow-medium border border-gray-200
-           transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-4 focus:ring-gray-200;
+    @apply inline-flex items-center justify-center bg-gray-100 text-gray-900 font-medium
+           py-3 px-6 rounded-full transition-all duration-200
+           hover:bg-gray-200 active:scale-[0.98]
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/20;
   }
-  
+
+  .btn-accent {
+    @apply inline-flex items-center justify-center bg-flow-600 text-white font-medium
+           py-3 px-6 rounded-full transition-all duration-200
+           hover:bg-flow-700 active:scale-[0.98]
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-flow-600/30;
+  }
+
   .btn-success {
-    @apply bg-gradient-to-r from-success-500 to-success-600 hover:from-success-600 hover:to-success-700 
-           text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 
-           shadow-soft hover:shadow-medium transform hover:scale-105 active:scale-95
-           focus:outline-none focus:ring-4 focus:ring-success-200;
+    @apply inline-flex items-center justify-center bg-success-600 text-white font-medium
+           py-3 px-6 rounded-full transition-all duration-200
+           hover:bg-success-700 active:scale-[0.98]
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-success-600/30;
   }
-  
-  .btn-warning {
-    @apply bg-gradient-to-r from-warning-500 to-warning-600 hover:from-warning-600 hover:to-warning-700 
-           text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 
-           shadow-soft hover:shadow-medium transform hover:scale-105 active:scale-95
-           focus:outline-none focus:ring-4 focus:ring-warning-200;
-  }
-  
+
   .btn-error {
-    @apply bg-gradient-to-r from-error-500 to-error-600 hover:from-error-600 hover:to-error-700 
-           text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 
-           shadow-soft hover:shadow-medium transform hover:scale-105 active:scale-95
-           focus:outline-none focus:ring-4 focus:ring-error-200;
+    @apply inline-flex items-center justify-center bg-error-600 text-white font-medium
+           py-3 px-6 rounded-full transition-all duration-200
+           hover:bg-error-700 active:scale-[0.98]
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-error-600/30;
   }
-  
+
+  /* ---------- 카드 ---------- */
   .card {
-    @apply bg-white rounded-2xl shadow-soft border border-gray-100 p-6 sm:p-8 
-           transition-all duration-300 hover:shadow-medium backdrop-blur-sm;
+    @apply bg-white rounded-4xl border border-gray-200/70 p-6 sm:p-8
+           transition-shadow duration-300;
   }
-  
-  .card-glass {
-    @apply bg-white/80 backdrop-blur-md rounded-2xl shadow-soft border border-white/20 
-           p-6 sm:p-8 transition-all duration-300 hover:shadow-medium;
+
+  .card-hover {
+    @apply hover:shadow-medium transition-all duration-300;
   }
-  
-  .card-gradient {
-    @apply bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-soft 
-           border border-gray-100 p-6 sm:p-8 transition-all duration-300 hover:shadow-medium;
+
+  .card-muted {
+    @apply bg-gray-100 rounded-4xl p-6 sm:p-8;
   }
-  
+
+  /* ---------- 입력 ---------- */
   .input-field {
-    @apply w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none 
-           focus:ring-4 focus:ring-flow-200 focus:border-flow-500 transition-all duration-300
-           bg-white/80 backdrop-blur-sm shadow-soft hover:shadow-medium;
+    @apply w-full px-4 py-3 bg-gray-100 border border-transparent rounded-2xl
+           text-gray-900 placeholder-gray-400
+           focus:outline-none focus:bg-white focus:border-gray-300
+           transition-all duration-200;
   }
-  
-  .input-field-success {
-    @apply w-full px-4 py-3 border border-success-200 rounded-xl focus:outline-none 
-           focus:ring-4 focus:ring-success-200 focus:border-success-500 transition-all duration-300
-           bg-white/80 backdrop-blur-sm shadow-soft hover:shadow-medium;
-  }
-  
-  .input-field-error {
-    @apply w-full px-4 py-3 border border-error-200 rounded-xl focus:outline-none 
-           focus:ring-4 focus:ring-error-200 focus:border-error-500 transition-all duration-300
-           bg-white/80 backdrop-blur-sm shadow-soft hover:shadow-medium;
-  }
-  
+
+  /* ---------- 뱃지 ---------- */
   .badge {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
-  
+
   .badge-primary {
-    @apply bg-flow-100 text-flow-800;
+    @apply bg-gray-100 text-gray-700;
   }
-  
+
+  .badge-accent {
+    @apply bg-flow-50 text-flow-700;
+  }
+
   .badge-success {
-    @apply bg-success-100 text-success-800;
+    @apply bg-success-50 text-success-700;
   }
-  
+
   .badge-warning {
-    @apply bg-warning-100 text-warning-800;
+    @apply bg-warning-50 text-warning-700;
   }
-  
+
   .badge-error {
-    @apply bg-error-100 text-error-800;
+    @apply bg-error-50 text-error-700;
   }
-  
+
+  /* ---------- 아이콘 컨테이너 ---------- */
   .icon-container {
-    @apply w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300
-           shadow-soft hover:shadow-medium transform hover:scale-110;
+    @apply w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0
+           transition-colors duration-200;
   }
-  
+
   .icon-container-primary {
-    @apply bg-gradient-to-br from-flow-500 to-flow-600 text-white;
+    @apply bg-gray-900 text-white;
   }
-  
+
+  .icon-container-accent {
+    @apply bg-flow-50 text-flow-600;
+  }
+
   .icon-container-success {
-    @apply bg-gradient-to-br from-success-500 to-success-600 text-white;
+    @apply bg-success-50 text-success-600;
   }
-  
+
   .icon-container-warning {
-    @apply bg-gradient-to-br from-warning-500 to-warning-600 text-white;
+    @apply bg-warning-50 text-warning-600;
   }
-  
+
   .icon-container-error {
-    @apply bg-gradient-to-br from-error-500 to-error-600 text-white;
+    @apply bg-error-50 text-error-600;
   }
-  
+
+  .icon-container-muted {
+    @apply bg-gray-100 text-gray-600;
+  }
+
+  /* ---------- 진행 바 ---------- */
   .progress-bar {
-    @apply w-full bg-gray-200 rounded-full h-2 overflow-hidden;
+    @apply w-full bg-gray-200 rounded-full h-1.5 overflow-hidden;
   }
-  
+
   .progress-fill {
-    @apply h-2 rounded-full transition-all duration-500 ease-out;
-  }
-  
-  .progress-fill-primary {
-    @apply bg-gradient-to-r from-flow-500 to-flow-600;
-  }
-  
-  .progress-fill-success {
-    @apply bg-gradient-to-r from-success-500 to-success-600;
-  }
-  
-  .progress-fill-warning {
-    @apply bg-gradient-to-r from-warning-500 to-warning-600;
-  }
-  
-  .progress-fill-error {
-    @apply bg-gradient-to-r from-error-500 to-error-600;
-  }
-  
-  .glass-effect {
-    @apply bg-white/80 backdrop-blur-md border border-white/20;
-  }
-  
-  .text-gradient {
-    @apply bg-gradient-to-r from-flow-600 to-flow-800 bg-clip-text text-transparent;
-  }
-  
-  .text-gradient-success {
-    @apply bg-gradient-to-r from-success-600 to-success-800 bg-clip-text text-transparent;
-  }
-  
-  .text-gradient-warning {
-    @apply bg-gradient-to-r from-warning-600 to-warning-800 bg-clip-text text-transparent;
-  }
-  
-  .text-gradient-error {
-    @apply bg-gradient-to-r from-error-600 to-error-800 bg-clip-text text-transparent;
-  }
-  
-  .animate-float {
-    animation: float 6s ease-in-out infinite;
-  }
-  
-  .animate-glow {
-    animation: glow 2s ease-in-out infinite alternate;
+    @apply h-full rounded-full transition-all duration-500 ease-out bg-gray-900;
   }
 }
 
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-@keyframes glow {
-  from {
-    box-shadow: 0 0 20px rgba(14, 165, 233, 0.15);
-  }
-  to {
-    box-shadow: 0 0 30px rgba(14, 165, 233, 0.25);
-  }
-}
-
-/* 스크롤바 스타일링 */
+/* 스크롤바 — 얇고 절제된 스타일 */
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100 rounded-full;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 rounded-full hover:bg-gray-400 transition-colors duration-200;
+  @apply bg-gray-300 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {

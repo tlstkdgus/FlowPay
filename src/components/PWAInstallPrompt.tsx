@@ -56,19 +56,19 @@ const PWAInstallPrompt: React.FC = () => {
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 50 }}
-          className="fixed bottom-4 left-4 right-4 z-50"
+          className="fixed bottom-24 lg:bottom-4 left-4 right-4 z-50"
         >
-          <div className="bg-white rounded-2xl shadow-large border border-gray-200 p-4 max-w-sm mx-auto">
-            <div className="flex items-start space-x-3">
+          <div className="bg-white rounded-4xl shadow-large border border-gray-200/70 p-4 max-w-sm mx-auto">
+            <div className="flex items-start gap-3">
               <div className="icon-container icon-container-primary flex-shrink-0">
                 <ArrowDownTrayIcon className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-gray-900 mb-1">FlowPay 설치</h3>
-                <p className="text-sm text-gray-600 mb-3">
+                <p className="text-sm text-gray-500 mb-3">
                   홈 화면에 추가하여 더 빠르게 접근하세요
                 </p>
-                <div className="flex space-x-2">
+                <div className="flex gap-2">
                   <button
                     onClick={handleInstallClick}
                     className="btn-primary text-sm py-2 px-4"

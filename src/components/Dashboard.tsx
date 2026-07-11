@@ -1,53 +1,27 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { 
-  CreditCardIcon, 
-  DocumentTextIcon, 
+import {
+  CreditCardIcon,
+  DocumentTextIcon,
   ChartBarIcon,
-  CurrencyDollarIcon,
-  ArrowTrendingUpIcon,
   UserGroupIcon,
-  SparklesIcon,
-  RocketLaunchIcon,
+  ArrowTrendingUpIcon,
   BuildingOfficeIcon,
-  ArrowRightIcon
+  ArrowRightIcon,
 } from '@heroicons/react/24/outline';
+
+const fade = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0 },
+};
 
 const Dashboard: React.FC = () => {
   const stats = [
-    { 
-      name: '이번 달 결제', 
-      value: '₩2,450,000', 
-      change: '+12%', 
-      icon: CreditCardIcon,
-      gradient: 'from-flow-500 to-flow-600',
-      bgGradient: 'from-flow-50 to-flow-100'
-    },
-    { 
-      name: '처리된 거래', 
-      value: '156건', 
-      change: '+8%', 
-      icon: DocumentTextIcon,
-      gradient: 'from-success-500 to-success-600',
-      bgGradient: 'from-success-50 to-success-100'
-    },
-    { 
-      name: '부서별 분류', 
-      value: '8개 부서', 
-      change: '100%', 
-      icon: UserGroupIcon,
-      gradient: 'from-warning-500 to-warning-600',
-      bgGradient: 'from-warning-50 to-warning-100'
-    },
-    { 
-      name: '예산 대비', 
-      value: '78%', 
-      change: '+5%', 
-      icon: ArrowTrendingUpIcon,
-      gradient: 'from-purple-500 to-purple-600',
-      bgGradient: 'from-purple-50 to-purple-100'
-    },
+    { name: '이번 달 결제', value: '₩2,450,000', change: '+12%', icon: CreditCardIcon },
+    { name: '처리된 거래', value: '156건', change: '+8%', icon: DocumentTextIcon },
+    { name: '부서별 분류', value: '8개 부서', change: '100%', icon: UserGroupIcon },
+    { name: '예산 대비', value: '78%', change: '+5%', icon: ArrowTrendingUpIcon },
   ];
 
   const recentPayments = [
@@ -58,245 +32,154 @@ const Dashboard: React.FC = () => {
   ];
 
   const features = [
-    {
-      title: '결제하기',
-      description: 'FlowPay와 일반 결제 방식 모두 지원',
-      icon: CreditCardIcon,
-      path: '/payment',
-      color: 'flow'
-    },
-    {
-      title: '영수증 업로드',
-      description: 'AI OCR로 영수증 자동 인식 및 분류',
-      icon: DocumentTextIcon,
-      path: '/receipt',
-      color: 'success'
-    },
-    {
-      title: '실시간 분석',
-      description: '부서별 지출 현황과 트렌드 분석',
-      icon: ChartBarIcon,
-      path: '/analytics',
-      color: 'warning'
-    },
-    {
-      title: '전표 생성',
-      description: '자동 전표 생성 및 승인 워크플로우',
-      icon: BuildingOfficeIcon,
-      path: '/invoice',
-      color: 'purple'
-    }
+    { title: '결제하기', description: '카드·간편결제', icon: CreditCardIcon, path: '/payment' },
+    { title: '영수증', description: '촬영·자동 인식', icon: DocumentTextIcon, path: '/receipt' },
+    { title: '분석', description: '지출 현황·트렌드', icon: ChartBarIcon, path: '/analytics' },
+    { title: '전표', description: '생성·승인 관리', icon: BuildingOfficeIcon, path: '/invoice' },
   ];
 
-  const getColorClasses = (color: string) => {
-    switch (color) {
-      case 'flow':
-        return 'from-flow-500 to-flow-600 bg-flow-50 border-flow-200';
-      case 'success':
-        return 'from-success-500 to-success-600 bg-success-50 border-success-200';
-      case 'warning':
-        return 'from-warning-500 to-warning-600 bg-warning-50 border-warning-200';
-      case 'purple':
-        return 'from-purple-500 to-purple-600 bg-purple-50 border-purple-200';
-      default:
-        return 'from-flow-500 to-flow-600 bg-flow-50 border-flow-200';
-    }
-  };
+  const budgetUsed = 2450000;
+  const budgetLimit = 3000000;
+  const budgetPct = Math.round((budgetUsed / budgetLimit) * 100);
 
   return (
-    <div className="p-4 sm:p-8 min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
-      <div className="max-w-7xl mx-auto">
-        {/* 헤더 섹션 */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8 sm:mb-12"
-        >
-          <div className="inline-flex items-center space-x-2 mb-4">
-            <div className="icon-container icon-container-primary animate-flow-float">
-              <SparklesIcon className="h-6 w-6" />
-            </div>
-            <span className="badge badge-primary">NEW</span>
-          </div>
-          <h1 className="text-3xl sm:text-5xl font-bold text-gradient mb-4">
-            FlowPay 대시보드
+    <div className="px-5 sm:px-8 lg:px-12 py-10 sm:py-16">
+      <div className="max-w-6xl mx-auto">
+        {/* 헤더 */}
+        <motion.div {...fade} className="mb-10 sm:mb-12">
+          <p className="text-sm text-gray-400 mb-1">2024년 1월</p>
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-gray-900 mb-2">
+            안녕하세요, 김대리님
           </h1>
-          <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto">
-            무기명 법인카드의 혁신적인 결제 관리 시스템으로 
-            <span className="text-gradient font-semibold"> 완전 자동화된 회계 처리</span>를 경험하세요
-          </p>
+          <p className="text-gray-500">이번 달 지출 현황과 최근 활동을 확인하세요.</p>
         </motion.div>
 
-        {/* 통계 카드 */}
+        {/* 통계 */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 sm:mb-12"
+          {...fade}
+          transition={{ delay: 0.05 }}
+          className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6"
         >
-          {stats.map((stat, index) => (
-            <motion.div
-              key={stat.name}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              whileHover={{ scale: 1.02 }}
-              className={`card-gradient bg-gradient-to-br ${stat.bgGradient} border-0`}
-            >
-              <div className="flex items-center">
-                <div className={`icon-container bg-gradient-to-br ${stat.gradient} shadow-glow flex-shrink-0`}>
-                  <stat.icon className="h-6 w-6" />
+          {stats.map((stat) => (
+            <div key={stat.name} className="card card-hover p-5 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="icon-container icon-container-muted">
+                  <stat.icon className="h-5 w-5" />
                 </div>
-                <div className="ml-4 flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-600 truncate">{stat.name}</p>
-                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">{stat.value}</p>
-                  <p className="text-sm text-success-600 font-semibold">{stat.change}</p>
-                </div>
+                <span className="text-xs font-medium text-success-600">{stat.change}</span>
               </div>
-            </motion.div>
+              <p className="text-2xl sm:text-3xl font-semibold text-gray-900 tracking-tight">{stat.value}</p>
+              <p className="text-sm text-gray-500 mt-1">{stat.name}</p>
+            </div>
           ))}
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* 최근 결제 내역 */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            whileHover={{ scale: 1.01 }}
-            className="card-glass"
-          >
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          {/* 최근 결제 */}
+          <motion.div {...fade} transition={{ delay: 0.1 }} className="card">
             <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <div className="icon-container icon-container-primary">
-                  <CreditCardIcon className="h-6 w-6" />
-                </div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">최근 결제 내역</h2>
-              </div>
+              <h2 className="text-xl font-semibold text-gray-900">최근 결제 내역</h2>
+              <Link to="/analytics" className="text-sm text-flow-600 hover:text-flow-700 font-medium">
+                전체 보기
+              </Link>
             </div>
-            
-            <div className="space-y-4">
-              {recentPayments.map((payment, index) => (
-                <motion.div
+            <div className="space-y-1">
+              {recentPayments.map((payment) => (
+                <div
                   key={payment.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-100 hover:shadow-medium transition-all duration-300"
+                  className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0"
                 >
-                  <div className="flex items-center space-x-3 min-w-0 flex-1 mr-4">
-                    <div className="icon-container bg-gradient-to-br from-flow-500 to-flow-600 flex-shrink-0">
-                      <CreditCardIcon className="h-5 w-5 text-white" />
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="icon-container icon-container-muted w-10 h-10">
+                      <CreditCardIcon className="h-5 w-5" />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-gray-900 truncate">{payment.merchant}</p>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <span className="text-xs text-gray-500">{payment.date}</span>
-                        <span className="badge badge-primary text-xs">{payment.category}</span>
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{payment.merchant}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-gray-400">{payment.date}</span>
+                        <span className="badge badge-primary">{payment.category}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0 ml-3 min-w-0">
-                    <p className="font-bold text-gray-900 text-lg truncate">
-                      ₩{payment.amount.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-flow-600 font-mono truncate">{payment.flowId}</p>
+                  <div className="text-right flex-shrink-0 ml-3">
+                    <p className="font-semibold text-gray-900">₩{payment.amount.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400 font-mono">{payment.flowId}</p>
                   </div>
-                </motion.div>
+                </div>
               ))}
             </div>
           </motion.div>
 
-          {/* Flow ID 시스템 정보 */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            whileHover={{ scale: 1.01 }}
-            className="card-glass"
-          >
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="icon-container icon-container-success">
-                <RocketLaunchIcon className="h-6 w-6" />
-              </div>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Flow ID 시스템</h2>
+          {/* 내 카드 현황 */}
+          <motion.div {...fade} transition={{ delay: 0.15 }} className="card flex flex-col">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">내 카드</h2>
+              <span className="badge badge-primary">관리부</span>
             </div>
-            
-            <div className="space-y-6">
-              <div className="flex items-start space-x-4">
-                <div className="icon-container icon-container-success">
-                  <UserGroupIcon className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">익명성 보장</h3>
-                  <p className="text-gray-600 leading-relaxed">
-                    개인정보 없이 랜덤 토큰으로 사용자를 식별하여 
-                    <span className="font-semibold text-success-600"> 개인정보보호법을 완벽히 준수</span>합니다.
-                  </p>
-                </div>
-              </div>
 
-              <div className="flex items-start space-x-4">
-                <div className="icon-container icon-container-primary">
-                  <CreditCardIcon className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">1-Click 결제</h3>
-                  <p className="text-gray-600 leading-relaxed">
-                    FIDO2 패스키를 통해 지문이나 Face ID로 
-                    <span className="font-semibold text-flow-600"> 즉시 결제가 가능</span>합니다.
-                  </p>
-                </div>
+            {/* Flow ID */}
+            <div className="card-muted p-5 mb-5">
+              <p className="text-xs text-gray-400 mb-1.5">Flow ID</p>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl font-mono font-semibold text-gray-900 tracking-widest">XK8P2M</span>
+                <CreditCardIcon className="h-6 w-6 text-gray-300" />
               </div>
+            </div>
 
-              <div className="flex items-start space-x-4">
-                <div className="icon-container icon-container-warning">
-                  <ChartBarIcon className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">자동 분류</h3>
-                  <p className="text-gray-600 leading-relaxed">
-                    결제 시 자동으로 부서와 프로젝트가 분류되어 
-                    <span className="font-semibold text-warning-600"> 회계 처리가 자동화</span>됩니다.
-                  </p>
-                </div>
+            {/* 이번 달 사용 */}
+            <div className="mb-5">
+              <div className="flex justify-between items-baseline mb-2">
+                <span className="text-sm text-gray-500">이번 달 사용</span>
+                <span className="text-sm text-gray-900">
+                  <span className="font-semibold">₩{budgetUsed.toLocaleString()}</span>
+                  <span className="text-gray-400"> / ₩{budgetLimit.toLocaleString()}</span>
+                </span>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${budgetPct}%` }} />
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                한도까지 ₩{(budgetLimit - budgetUsed).toLocaleString()} 남음
+              </p>
+            </div>
+
+            {/* 상태 */}
+            <div className="border-t border-gray-100 pt-4 mt-auto space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">1-Click 결제</span>
+                <span className="flex items-center gap-1.5 text-sm text-gray-900">
+                  <span className="w-1.5 h-1.5 rounded-full bg-success-500" /> 사용 중
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">자동 분류</span>
+                <span className="flex items-center gap-1.5 text-sm text-gray-900">
+                  <span className="w-1.5 h-1.5 rounded-full bg-success-500" /> 켜짐
+                </span>
               </div>
             </div>
           </motion.div>
         </div>
 
         {/* 기능 링크 */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="mt-8 sm:mt-12"
-        >
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 text-center">모든 기능 체험하기</h2>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {features.map((feature, index) => (
-              <motion.div
+        <motion.div {...fade} transition={{ delay: 0.2 }} className="mt-12 sm:mt-16">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6 tracking-tight">바로가기</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {features.map((feature) => (
+              <Link
                 key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ scale: 1.05 }}
+                to={feature.path}
+                className="card card-hover group flex flex-col"
               >
-                <Link
-                  to={feature.path}
-                  className={`block p-6 rounded-2xl border transition-all duration-300 hover:shadow-large ${getColorClasses(feature.color)}`}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`icon-container bg-gradient-to-br ${getColorClasses(feature.color).split(' ')[0]} ${getColorClasses(feature.color).split(' ')[1]}`}>
-                      <feature.icon className="h-6 w-6 text-white" />
-                    </div>
-                    <ArrowRightIcon className="h-5 w-5 text-gray-400" />
+                <div className="flex items-center justify-between mb-6">
+                  <div className="icon-container icon-container-primary">
+                    <feature.icon className="h-5 w-5" />
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{feature.title}</h3>
-                  <p className="text-sm text-gray-600">{feature.description}</p>
-                </Link>
-              </motion.div>
+                  <ArrowRightIcon className="h-5 w-5 text-gray-300 group-hover:text-gray-900 group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">{feature.title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">{feature.description}</p>
+              </Link>
             ))}
           </div>
         </motion.div>
@@ -305,4 +188,4 @@ const Dashboard: React.FC = () => {
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

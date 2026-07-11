@@ -1,130 +1,110 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import {
   HomeIcon,
   CreditCardIcon,
-  UserIcon,
-  SparklesIcon,
   DocumentTextIcon,
   ChartBarIcon,
   BuildingOfficeIcon,
-  ShieldCheckIcon
 } from '@heroicons/react/24/outline';
+import {
+  HomeIcon as HomeSolid,
+  CreditCardIcon as CreditCardSolid,
+  DocumentTextIcon as DocumentTextSolid,
+  ChartBarIcon as ChartBarSolid,
+  BuildingOfficeIcon as BuildingOfficeSolid,
+} from '@heroicons/react/24/solid';
 import Logo from './Logo';
 
-const Sidebar: React.FC = () => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const location = useLocation();
+const menuItems = [
+  { name: '대시보드', icon: HomeIcon, activeIcon: HomeSolid, path: '/', description: '개요' },
+  { name: '결제하기', icon: CreditCardIcon, activeIcon: CreditCardSolid, path: '/payment', description: 'FlowPay 결제' },
+  { name: '영수증', icon: DocumentTextIcon, activeIcon: DocumentTextSolid, path: '/receipt', description: 'AI OCR 처리' },
+  { name: '분석', icon: ChartBarIcon, activeIcon: ChartBarSolid, path: '/analytics', description: '실시간 분석' },
+  { name: '전표', icon: BuildingOfficeIcon, activeIcon: BuildingOfficeSolid, path: '/invoice', description: '자동 전표' },
+];
 
-  const menuItems = [
-    { name: '대시보드', icon: HomeIcon, path: '/', description: 'FlowPay 개요' },
-    { name: '결제하기', icon: CreditCardIcon, path: '/payment', description: 'FlowPay 결제' },
-    { name: '영수증 업로드', icon: DocumentTextIcon, path: '/receipt', description: 'AI OCR 처리' },
-    { name: '분석', icon: ChartBarIcon, path: '/analytics', description: '실시간 분석' },
-    { name: '전표 생성', icon: BuildingOfficeIcon, path: '/invoice', description: '자동 전표 생성' },
-  ];
+const Sidebar: React.FC = () => {
+  const location = useLocation();
 
   const user = {
     name: '김대리',
     department: '관리부',
-    flowId: 'XK8P2M'
+    flowId: 'XK8P2M',
   };
 
   return (
-    <motion.div
-      initial={{ x: -100 }}
-      animate={{ x: 0 }}
-      className={`bg-white shadow-soft border-r border-gray-200 transition-all duration-300 ${
-        isCollapsed ? 'w-16' : 'w-64'
-      } lg:block hidden`}
-    >
-      <div className="p-4">
-        {/* 로고 */}
-        <div className="mb-8">
-          {isCollapsed ? (
-            <div className="flex justify-center">
-              <Logo size="sm" showText={false} />
-            </div>
-          ) : (
-            <Logo size="md" showText={true} />
-          )}
+    <>
+      {/* ===== 데스크톱 사이드바 (고정) ===== */}
+      <aside className="hidden lg:flex lg:flex-col fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200/70 z-40">
+        <div className="px-6 pt-7 pb-6">
+          <Logo size="md" showText={true} />
         </div>
 
-        {/* 사용자 정보 */}
-        {!isCollapsed && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mb-6 p-4 bg-gradient-to-r from-flow-50 to-flow-100 rounded-xl border border-flow-200"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-flow-500 to-flow-600 rounded-full flex items-center justify-center">
-                <UserIcon className="h-5 w-5 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 truncate">{user.name}</p>
-                <p className="text-xs text-gray-600">{user.department}</p>
-                <p className="text-xs text-flow-600 font-mono">{user.flowId}</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* 메뉴 */}
-        <nav className="space-y-2">
+        <nav className="flex-1 px-3 space-y-1">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
+            const Icon = isActive ? item.activeIcon : item.icon;
             return (
               <Link
                 key={item.name}
                 to={item.path}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-colors duration-150 ${
                   isActive
-                    ? 'bg-gradient-to-r from-flow-500 to-flow-600 text-white shadow-flow-glow'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-gray-100 text-gray-900'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                {!isCollapsed && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex-1 min-w-0"
-                  >
-                    <p className="font-medium truncate">{item.name}</p>
-                    <p className="text-xs opacity-75 truncate">{item.description}</p>
-                  </motion.div>
-                )}
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium leading-tight truncate">{item.name}</p>
+                  <p className="text-xs text-gray-400 leading-tight truncate">{item.description}</p>
+                </div>
               </Link>
             );
           })}
         </nav>
 
-        {/* 접기 버튼 */}
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="absolute bottom-4 left-4 w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors duration-200"
-        >
-          <svg
-            className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${
-              isCollapsed ? 'rotate-180' : ''
-            }`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-        </button>
-      </div>
-    </motion.div>
+        {/* 사용자 정보 */}
+        <div className="p-3">
+          <div className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-gray-50">
+            <div className="w-9 h-9 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-semibold flex-shrink-0">
+              {user.name.charAt(0)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+              <p className="text-xs text-gray-500 truncate">
+                {user.department} · <span className="font-mono text-flow-600">{user.flowId}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* ===== 모바일 하단 탭바 ===== */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/85 backdrop-blur-xl border-t border-gray-200/70">
+        <div className="grid grid-cols-5 max-w-md mx-auto">
+          {menuItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            const Icon = isActive ? item.activeIcon : item.icon;
+            return (
+              <Link
+                key={item.name}
+                to={item.path}
+                className={`flex flex-col items-center gap-1 py-2.5 transition-colors ${
+                  isActive ? 'text-flow-600' : 'text-gray-400'
+                }`}
+              >
+                <Icon className="h-6 w-6" />
+                <span className="text-[10px] font-medium">{item.name}</span>
+              </Link>
+            );
+          })}
+        </div>
+        <div className="h-[env(safe-area-inset-bottom)]" />
+      </nav>
+    </>
   );
 };
 
-export default Sidebar; 
+export default Sidebar;
