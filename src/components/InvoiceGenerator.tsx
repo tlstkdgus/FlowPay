@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  DocumentTextIcon,
   ArrowDownTrayIcon,
   PrinterIcon,
   DocumentMagnifyingGlassIcon,
+  PlusIcon,
 } from '@heroicons/react/24/outline';
+import { PageHeader, Highlight, AutoColumnsPill } from './ui';
 
 interface InvoiceData {
   id: string;
@@ -34,15 +35,15 @@ const generationSteps = [
 
 const statusLabel = (s?: string) => (s === 'approved' ? '승인됨' : s === 'rejected' ? '거부됨' : '대기중');
 
-const statusDotColor = (s?: string) => {
-  if (s === 'approved') return 'bg-success-500';
-  if (s === 'rejected') return 'bg-error-500';
-  return 'bg-warning-500';
+const statusBadge = (s?: string) => {
+  if (s === 'approved') return 'badge-success';
+  if (s === 'rejected') return 'badge-error';
+  return 'badge-warning';
 };
 
 const StatusTag: React.FC<{ status?: string }> = ({ status }) => (
-  <span className="inline-flex items-center gap-1.5 text-sm text-gray-600">
-    <span className={`w-1.5 h-1.5 rounded-full ${statusDotColor(status)}`} />
+  <span className={`badge ${statusBadge(status)} gap-1`}>
+    <span className="w-1.5 h-1.5 rounded-full bg-current" />
     {statusLabel(status)}
   </span>
 );
@@ -159,106 +160,139 @@ ${invoice.approvalDate ? `승인일: ${invoice.approvalDate}` : ''}`;
   return (
     <div className="px-5 sm:px-8 lg:px-12 py-10 sm:py-14">
       <div className="max-w-6xl mx-auto">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-gray-900 mb-2">전표 생성</h1>
-          <p className="text-gray-500 max-w-2xl leading-relaxed">
-            Flow ID 기반으로 생성된 전표를 관리하고 승인을 처리합니다.
-          </p>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
+          <PageHeader
+            eyebrow="Invoice"
+            title={
+              <>
+                증빙·전표 처리를 <Highlight>자동화</Highlight>합니다
+              </>
+            }
+            description="Flow ID로 연결된 결제를 전표로 만들고, 승인까지 한 화면에서 처리합니다."
+            right={
+              <button
+                onClick={() => generateInvoice('XK8P2M')}
+                disabled={isGenerating}
+                className="btn-primary text-sm py-2.5 px-5 disabled:opacity-40 self-start sm:self-auto"
+              >
+                <PlusIcon className="h-4 w-4 mr-1.5" />
+                {isGenerating ? '생성 중…' : '새 전표 생성'}
+              </button>
+            }
+          />
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          {/* 전표 목록 */}
+          {/* 전표 목록 — 발표자료 전표 테이블 */}
           <div className="lg:col-span-2">
             <div className="card">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">전표 목록</h2>
-                <button onClick={() => generateInvoice('XK8P2M')} disabled={isGenerating} className="btn-primary text-sm py-2.5 px-5 disabled:opacity-40">
-                  {isGenerating ? '생성 중…' : '새 전표 생성'}
-                </button>
+              <div className="flex items-baseline justify-between mb-4 gap-3">
+                <h2 className="card-title">
+                  관리부 <span className="text-gray-400 font-semibold">전표 목록</span>
+                </h2>
+                <span className="text-xs text-gray-400 whitespace-nowrap">{invoices.length}건</span>
               </div>
 
               {isGenerating && (
-                <div className="card-muted p-4 mb-4">
+                <div className="rounded-2xl bg-flow-50 p-4 mb-4">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-900 border-t-transparent" />
-                    <span className="text-sm font-medium text-gray-900">{generationSteps[generationStep]}</span>
+                    <span className="w-6 h-6 rounded-full bg-flow-500 text-white text-xs font-bold flex items-center justify-center">
+                      {generationStep + 1}
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900">{generationSteps[generationStep]}</span>
                   </div>
-                  <div className="progress-bar">
+                  <div className="progress-bar bg-white">
                     <div className="progress-fill" style={{ width: `${((generationStep + 1) / generationSteps.length) * 100}%` }} />
                   </div>
                 </div>
               )}
 
-              <div className="space-y-2">
-                {invoices.map((invoice) => (
-                  <button
-                    key={invoice.id}
-                    onClick={() => setSelectedInvoice(invoice)}
-                    className={`w-full text-left p-4 rounded-2xl border transition-all ${
-                      selectedInvoice?.id === invoice.id ? 'border-flow-500 bg-flow-50/40 ring-1 ring-flow-500' : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="icon-container icon-container-muted w-10 h-10">
-                          <DocumentTextIcon className="h-5 w-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="font-medium text-gray-900 truncate">{invoice.id}</h3>
-                          <p className="text-sm text-gray-500 truncate">{invoice.merchant}</p>
-                        </div>
-                      </div>
-                      <div className="text-right flex-shrink-0 ml-3">
-                        <p className="font-semibold text-gray-900">₩{invoice.amount.toLocaleString()}</p>
-                        <p className="text-xs text-gray-400 font-mono">{invoice.flowId}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 text-xs text-gray-400">
-                        <span>{invoice.date}</span>
-                        <span>{invoice.department}</span>
-                        <span>{invoice.category}</span>
-                      </div>
-                      <StatusTag status={invoice.approvalStatus} />
-                    </div>
-                  </button>
-                ))}
+              <div className="overflow-x-auto -mx-6 sm:-mx-7 px-3 sm:px-4">
+                <table className="min-w-full">
+                  <thead>
+                    <tr>
+                      <th className="table-head">전표일</th>
+                      <th className="table-head">전표 번호</th>
+                      <AutoColumnsPill labels={['계정과목', '부서']} />
+                      <th className="table-head">결제 금액</th>
+                      <th className="table-head">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoices.map((invoice) => {
+                      const selected = selectedInvoice?.id === invoice.id;
+                      return (
+                        <tr
+                          key={invoice.id}
+                          onClick={() => setSelectedInvoice(invoice)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setSelectedInvoice(invoice);
+                            }
+                          }}
+                          tabIndex={0}
+                          aria-selected={selected}
+                          className={`cursor-pointer transition-colors outline-none focus-visible:bg-flow-50 ${
+                            selected ? 'bg-flow-50' : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <td className="table-cell tabular-nums text-gray-500">{invoice.date.replace(/-/g, '.')}</td>
+                          <td className={`table-cell font-medium ${selected ? 'text-flow-700' : 'text-gray-900'}`}>{invoice.id}</td>
+                          <td className="table-cell w-28">{invoice.category}</td>
+                          <td className="table-cell w-28">{invoice.department}</td>
+                          <td className="table-cell font-semibold text-gray-900 tabular-nums">{invoice.amount.toLocaleString()}</td>
+                          <td className="table-cell"><StatusTag status={invoice.approvalStatus} /></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
 
           {/* 전표 상세 */}
           <div className="card">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">전표 상세</h2>
+            <h2 className="card-title mb-5">전표 상세</h2>
             <AnimatePresence mode="wait">
               {!selectedInvoice ? (
                 <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16">
-                  <DocumentMagnifyingGlassIcon className="h-14 w-14 text-gray-300 mx-auto mb-4" />
+                  <div className="w-16 h-16 rounded-2xl bg-flow-50 flex items-center justify-center mx-auto mb-4">
+                    <DocumentMagnifyingGlassIcon className="h-8 w-8 text-flow-500" />
+                  </div>
                   <p className="text-sm text-gray-400">전표를 선택하면 상세 정보를 확인할 수 있습니다.</p>
                 </motion.div>
               ) : (
-                <motion.div key={selectedInvoice.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+                <motion.div key={selectedInvoice.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                  <div className="flex items-end justify-between pb-4 border-b border-gray-100">
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-400 mb-1">{selectedInvoice.id}</p>
+                      <p className="font-semibold text-gray-900 truncate">{selectedInvoice.merchant}</p>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900 tabular-nums whitespace-nowrap ml-3">
+                      {selectedInvoice.amount.toLocaleString()} <span className="text-base">원</span>
+                    </p>
+                  </div>
+
                   <div className="card-muted p-4">
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">기본 정보</h3>
+                    <h3 className="text-xs font-semibold text-gray-400 mb-3">기본 정보</h3>
                     <div className="space-y-2 text-sm">
-                      <DetailRow label="전표번호" value={selectedInvoice.id} />
                       <DetailRow label="Flow ID" value={selectedInvoice.flowId} mono />
-                      <DetailRow label="가맹점" value={selectedInvoice.merchant} />
-                      <DetailRow label="금액" value={`₩${selectedInvoice.amount.toLocaleString()}`} bold />
-                      <DetailRow label="날짜" value={selectedInvoice.date} />
+                      <DetailRow label="전표일" value={selectedInvoice.date} />
                     </div>
                   </div>
 
-                  <div className="card-muted p-4">
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">자동 분류</h3>
+                  <div className="rounded-2xl bg-flow-50 p-4">
+                    <h3 className="text-xs font-semibold text-flow-700 mb-3">자동 분류</h3>
                     <div className="space-y-2 text-sm">
+                      <DetailRow label="계정과목" value={selectedInvoice.category} />
                       <DetailRow label="부서" value={selectedInvoice.department} />
-                      <DetailRow label="카테고리" value={selectedInvoice.category} />
                     </div>
                   </div>
 
                   <div className="card-muted p-4">
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">상품 내역</h3>
+                    <h3 className="text-xs font-semibold text-gray-400 mb-3">상품 내역</h3>
                     <div className="space-y-2">
                       {selectedInvoice.items.map((item, index) => (
                         <div key={index} className="flex justify-between items-center bg-white rounded-xl px-3 py-2.5">
@@ -267,8 +301,8 @@ ${invoice.approvalDate ? `승인일: ${invoice.approvalDate}` : ''}`;
                             <p className="text-xs text-gray-400">수량 {item.quantity}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm font-semibold text-gray-900">₩{item.total.toLocaleString()}</p>
-                            <p className="text-xs text-gray-400">단가 ₩{item.price.toLocaleString()}</p>
+                            <p className="text-sm font-semibold text-gray-900 tabular-nums">{item.total.toLocaleString()} 원</p>
+                            <p className="text-xs text-gray-400 tabular-nums">단가 {item.price.toLocaleString()} 원</p>
                           </div>
                         </div>
                       ))}
@@ -276,7 +310,7 @@ ${invoice.approvalDate ? `승인일: ${invoice.approvalDate}` : ''}`;
                   </div>
 
                   <div className="card-muted p-4">
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">승인 상태</h3>
+                    <h3 className="text-xs font-semibold text-gray-400 mb-3">승인 상태</h3>
                     <div className="space-y-2.5 text-sm">
                       <div className="flex justify-between items-center">
                         <span className="text-gray-500">상태</span>
@@ -293,7 +327,7 @@ ${invoice.approvalDate ? `승인일: ${invoice.approvalDate}` : ''}`;
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 pt-1">
                     {selectedInvoice.approvalStatus === 'pending' && (
                       <div className="flex gap-2">
                         <button onClick={() => approveInvoice(selectedInvoice.id, true)} className="btn-success flex-1 text-sm">
@@ -304,12 +338,14 @@ ${invoice.approvalDate ? `승인일: ${invoice.approvalDate}` : ''}`;
                         </button>
                       </div>
                     )}
-                    <button onClick={() => downloadInvoice(selectedInvoice)} className="btn-secondary w-full text-sm">
-                      <ArrowDownTrayIcon className="h-4 w-4 mr-1.5" /> 전표 다운로드
-                    </button>
-                    <button className="btn-secondary w-full text-sm">
-                      <PrinterIcon className="h-4 w-4 mr-1.5" /> 미리보기
-                    </button>
+                    <div className="flex gap-2">
+                      <button onClick={() => downloadInvoice(selectedInvoice)} className="btn-secondary flex-1 text-sm px-3">
+                        <ArrowDownTrayIcon className="h-4 w-4 mr-1.5" /> 다운로드
+                      </button>
+                      <button className="btn-secondary flex-1 text-sm px-3">
+                        <PrinterIcon className="h-4 w-4 mr-1.5" /> 미리보기
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -324,7 +360,7 @@ ${invoice.approvalDate ? `승인일: ${invoice.approvalDate}` : ''}`;
 const DetailRow: React.FC<{ label: string; value: string; bold?: boolean; mono?: boolean }> = ({ label, value, bold, mono }) => (
   <div className="flex justify-between">
     <span className="text-gray-500">{label}</span>
-    <span className={`${bold ? 'font-semibold' : 'font-medium'} ${mono ? 'font-mono text-flow-600' : 'text-gray-900'}`}>{value}</span>
+    <span className={`${bold ? 'font-semibold' : 'font-medium'} ${mono ? 'tracking-wide text-flow-700' : 'text-gray-900'}`}>{value}</span>
   </div>
 );
 

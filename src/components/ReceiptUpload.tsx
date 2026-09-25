@@ -12,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import Tesseract from 'tesseract.js';
 import { useNavigate } from 'react-router-dom';
+import { PageHeader, Highlight } from './ui';
 
 interface ReceiptData {
   id: string;
@@ -229,30 +230,37 @@ const ReceiptUpload: React.FC = () => {
   return (
     <div className="px-5 sm:px-8 lg:px-12 py-10 sm:py-14">
       <div className="max-w-5xl mx-auto">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-gray-900 mb-2">영수증 처리</h1>
-          <p className="text-gray-500 max-w-2xl leading-relaxed">
-            영수증을 업로드하거나 촬영하면 텍스트를 추출해 Flow ID와 연결하고 자동으로 분류합니다.
-          </p>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
+          <PageHeader
+            eyebrow="Receipt"
+            title={
+              <>
+                <Highlight>AI 영수증</Highlight> 자동 수집
+              </>
+            }
+            description="영수증을 촬영하거나 업로드하면 텍스트를 추출해 Flow ID와 연결하고 계정과목을 자동 분류합니다."
+          />
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* 업로드 영역 */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="card">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">영수증 업로드</h2>
+            <h2 className="card-title mb-5">영수증 업로드</h2>
 
             {!uploadedImage ? (
               <div className="space-y-3">
                 <button
                   onClick={startCamera}
-                  className="w-full card-muted p-8 text-center hover:bg-gray-200/70 transition-colors"
+                  className="w-full rounded-2xl bg-flow-50 border-2 border-flow-200 p-8 text-center hover:border-flow-400 transition-colors"
                 >
-                  <CameraIcon className="h-10 w-10 text-gray-900 mx-auto mb-3" />
-                  <h3 className="font-medium text-gray-900 mb-1">카메라로 촬영</h3>
+                  <span className="w-14 h-14 rounded-2xl bg-flow-500 text-white flex items-center justify-center mx-auto mb-3 shadow-mint">
+                    <CameraIcon className="h-7 w-7" />
+                  </span>
+                  <h3 className="font-bold text-gray-900 mb-1">카메라로 촬영</h3>
                   <p className="text-sm text-gray-500">실시간으로 영수증을 촬영하여 즉시 처리</p>
                 </button>
 
-                <div className="border border-dashed border-gray-300 rounded-4xl p-8 text-center">
+                <div className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center">
                   <CloudArrowUpIcon className="h-10 w-10 text-gray-400 mx-auto mb-3" />
                   <p className="text-sm text-gray-500 mb-4">또는 기존 이미지 파일을 업로드하세요</p>
                   <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
@@ -274,12 +282,12 @@ const ReceiptUpload: React.FC = () => {
                 </div>
 
                 {isProcessing && (
-                  <div className="card-muted p-4">
+                  <div className="rounded-2xl bg-flow-50 p-4">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-900 border-t-transparent" />
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-flow-500 border-t-transparent" />
                       <span className="text-sm font-medium text-gray-900">{processingSteps[processingStep]}</span>
                     </div>
-                    <div className="progress-bar">
+                    <div className="progress-bar bg-white">
                       <div
                         className="progress-fill"
                         style={{ width: `${((processingStep + 1) / processingSteps.length) * 100}%` }}
@@ -304,35 +312,45 @@ const ReceiptUpload: React.FC = () => {
 
           {/* 결과 영역 */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="card">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">처리 결과</h2>
+            <h2 className="card-title mb-5">처리 결과</h2>
 
             <AnimatePresence mode="wait">
               {!receiptData ? (
                 <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16">
-                  <DocumentMagnifyingGlassIcon className="h-14 w-14 text-gray-300 mx-auto mb-4" />
+                  <div className="w-16 h-16 rounded-2xl bg-flow-50 flex items-center justify-center mx-auto mb-4">
+                    <DocumentMagnifyingGlassIcon className="h-8 w-8 text-flow-500" />
+                  </div>
                   <p className="text-sm text-gray-400">영수증을 업로드하거나 촬영하면 AI가 자동으로 분석합니다.</p>
                 </motion.div>
               ) : (
                 <motion.div key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                  <div className="card-muted p-5">
-                    <div className="flex items-center gap-2 mb-4">
-                      <CheckCircleIcon className="h-5 w-5 text-success-600" />
-                      <span className="text-sm font-medium text-gray-900">데이터 추출 완료</span>
+                  <div className="rounded-2xl border border-gray-200 p-5">
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-gray-100">
+                      <CheckCircleIcon className="h-5 w-5 text-flow-500" />
+                      <span className="font-bold text-gray-900">데이터 추출 완료</span>
+                      <span className="badge badge-accent ml-auto">정확도 {receiptData.confidence.toFixed(1)}%</span>
                     </div>
                     <div className="space-y-2.5 text-sm">
                       <ResultRow label="가맹점" value={receiptData.merchant} />
-                      <ResultRow label="금액" value={`₩${receiptData.amount.toLocaleString()}`} bold />
                       <ResultRow label="날짜" value={receiptData.date} />
                       <ResultRow label="Flow ID" value={receiptData.flowId} mono />
+                    </div>
+                    <div className="flex justify-end mt-3">
+                      <span className="text-2xl font-bold text-gray-900 tabular-nums">{receiptData.amount.toLocaleString()} 원</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl bg-flow-50 p-4">
+                    <p className="text-xs font-semibold text-flow-700 mb-2.5">자동 분류</p>
+                    <div className="space-y-2 text-sm">
                       <ResultRow label="부서" value={receiptData.department} />
-                      <ResultRow label="카테고리" value={receiptData.category} />
-                      <ResultRow label="정확도" value={`${receiptData.confidence.toFixed(1)}%`} />
+                      <ResultRow label="계정과목" value={receiptData.category} />
                     </div>
                   </div>
 
                   {showPreview && (
                     <div className="card-muted p-4">
-                      <h3 className="text-sm font-medium text-gray-900 mb-2">추출된 텍스트</h3>
+                      <h3 className="text-xs font-semibold text-gray-400 mb-2">추출된 텍스트</h3>
                       <div className="bg-white rounded-xl p-3 text-xs font-mono text-gray-600 max-h-40 overflow-y-auto whitespace-pre-wrap">
                         {extractedText || '텍스트 추출 중...'}
                       </div>
@@ -341,7 +359,7 @@ const ReceiptUpload: React.FC = () => {
 
                   {receiptData.items.length > 0 && (
                     <div className="card-muted p-4">
-                      <h3 className="text-sm font-medium text-gray-900 mb-2">상품 목록</h3>
+                      <h3 className="text-xs font-semibold text-gray-400 mb-2">상품 목록</h3>
                       <div className="space-y-1.5">
                         {receiptData.items.map((item, index) => (
                           <div key={index} className="text-sm text-gray-600 bg-white rounded-lg px-3 py-2">
@@ -370,10 +388,10 @@ const ReceiptUpload: React.FC = () => {
                 initial={{ scale: 0.96, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.96, opacity: 0 }}
-                className="bg-white rounded-4xl p-6 max-w-md w-full"
+                className="bg-white rounded-3xl p-6 max-w-md w-full shadow-large"
               >
                 <div className="text-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">카메라 촬영</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">카메라 촬영</h3>
                   <p className="text-sm text-gray-500">영수증을 화면에 맞춰 촬영해주세요</p>
                 </div>
                 <div className="relative mb-4">
@@ -406,7 +424,7 @@ const ResultRow: React.FC<{ label: string; value: string; bold?: boolean; mono?:
 }) => (
   <div className="flex justify-between">
     <span className="text-gray-500">{label}</span>
-    <span className={`${bold ? 'font-semibold' : 'font-medium'} ${mono ? 'font-mono text-flow-600' : 'text-gray-900'}`}>
+    <span className={`${bold ? 'font-semibold' : 'font-medium'} ${mono ? 'tracking-wide text-flow-700' : 'text-gray-900'}`}>
       {value}
     </span>
   </div>
