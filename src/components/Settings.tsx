@@ -9,14 +9,17 @@ import {
 } from '@heroicons/react/24/outline';
 import { useFlowPay } from '../store/FlowPayContext';
 import { monthSpentByDepartment } from '../store/selectors';
-import { formatDate, toLocalISO, won } from '../utils/format';
+import { formatDate, won } from '../utils/format';
 import { downloadFile } from '../utils/csv';
 import {
+  AuthServerError,
   PasskeyCancelledError,
   PasskeyUnsupportedError,
+  ServerStatus,
+  getServerStatus,
+  hasServerPasskey,
   isPasskeySupported,
   registerPasskey,
-  simulatedCredentialId,
 } from '../utils/passkey';
 import { Field, Modal, Page, PageHeader, Toggle, useToast } from './ui';
 
@@ -44,13 +47,16 @@ const Settings: React.FC = () => {
   const { state, updateProfile, reissueFlowId, updateSettings, updateDepartment, resetDemo } = useFlowPay();
   const { profile, settings } = state;
   const toast = useToast();
-  const [supported, setSupported] = useState<boolean | null>(null);
+  const [supported] = useState(isPasskeySupported);
+  const [server, setServer] = useState<ServerStatus | null | undefined>(undefined);
   const [registering, setRegistering] = useState(false);
   const [confirm, setConfirm] = useState<'reissue' | 'reset' | null>(null);
 
   useEffect(() => {
-    isPasskeySupported().then(setSupported);
+    getServerStatus().then(setServer);
   }, []);
+
+  const passkey = hasServerPasskey(profile.passkey) ? profile.passkey : undefined;
 
   const copyFlowId = async () => {
     try {
@@ -61,15 +67,16 @@ const Settings: React.FC = () => {
     }
   };
 
-  const register = async (simulated: boolean) => {
+  const register = async () => {
     setRegistering(true);
     try {
-      const credentialId = simulated ? simulatedCredentialId() : await registerPasskey(profile.flowId);
-      updateProfile({ passkey: { credentialId, createdAt: toLocalISO(new Date()), simulated } });
-      toast(simulated ? '데모 패스키를 등록했습니다' : '패스키를 등록했습니다. 이제 1-Click 결제를 사용할 수 있어요');
+      const passkey = await registerPasskey(profile.flowId);
+      updateProfile({ passkey });
+      toast('패스키를 등록했습니다. 서버가 검증한 패스키로 1-Click 결제를 사용할 수 있어요');
     } catch (e) {
-      if (e instanceof PasskeyCancelledError) toast('패스키 등록이 취소되었습니다', 'info');
-      else if (e instanceof PasskeyUnsupportedError) toast('이 기기는 패스키를 지원하지 않습니다. 데모 등록을 이용하세요', 'error');
+      if (e instanceof PasskeyCancelledError) toast(e.message, 'info');
+      else if (e instanceof PasskeyUnsupportedError) toast(e.message, 'error');
+      else if (e instanceof AuthServerError) toast(`인증 서버 오류: ${e.message}`, 'error');
       else toast('패스키 등록에 실패했습니다', 'error');
     } finally {
       setRegistering(false);
@@ -127,18 +134,45 @@ const Settings: React.FC = () => {
       </Section>
 
       {/* 패스키 */}
-      <Section title="패스키 (FIDO2)" description="지문·Face ID로 결제를 승인합니다. 생체 정보는 기기 밖으로 나가지 않습니다.">
-        {profile.passkey ? (
+      <Section
+        title="패스키 (FIDO2)"
+        description="지문·Face ID로 결제를 승인합니다. 생체 정보는 기기 밖으로 나가지 않고, 인증기의 서명은 FlowPay 인증 서버가 검증합니다."
+      >
+        {/* 인증 서버 상태 */}
+        <div className="flex items-center gap-2 text-sm mb-5">
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              server === undefined ? 'bg-gray-300' : server && server.originAllowed ? 'bg-success-500' : 'bg-error-500'
+            }`}
+          />
+          <span className="text-gray-600">
+            {server === undefined
+              ? '인증 서버 확인 중…'
+              : !server
+              ? '인증 서버에 연결할 수 없습니다 (npm run api 실행 필요)'
+              : !server.originAllowed
+              ? '인증 서버가 이 도메인을 허용하지 않습니다 (FLOWPAY_ALLOWED_ORIGINS 확인)'
+              : '인증 서버 연결됨'}
+          </span>
+          {server && (
+            <span className={`badge ${server.keyMode === 'configured' ? 'badge-success' : 'badge-warning'}`}>
+              {server.keyMode === 'configured' ? '운영 서명 키' : '데모 서명 키'}
+            </span>
+          )}
+        </div>
+
+        {passkey ? (
           <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <div className="icon-container icon-container-success">
                 <ShieldCheckIcon className="h-5 w-5" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  등록됨{profile.passkey.simulated && <span className="badge badge-warning ml-2">데모</span>}
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900">서버 검증 패스키 등록됨</p>
+                <p className="text-xs text-gray-500 truncate">
+                  {formatDate(passkey.createdAt)} 등록 · Flow ID {profile.flowId}
+                  {passkey.deviceType && ` · ${passkey.deviceType === 'multiDevice' ? '동기화 패스키' : '기기 전용'}`}
                 </p>
-                <p className="text-xs text-gray-500">{formatDate(profile.passkey.createdAt)} 등록 · Flow ID {profile.flowId}</p>
               </div>
             </div>
             <button
@@ -158,21 +192,14 @@ const Settings: React.FC = () => {
                 <FingerPrintIcon className="h-5 w-5" />
               </div>
               <p className="text-sm text-gray-600">
-                {supported === null
-                  ? '기기 지원 여부 확인 중…'
-                  : supported
-                  ? '이 기기에서 패스키를 사용할 수 있습니다.'
-                  : '이 기기·브라우저는 플랫폼 패스키를 지원하지 않습니다 (HTTPS와 생체 인증 장치가 필요).'}
+                {supported
+                  ? '기기의 지문·Face ID·화면 잠금이나 휴대폰(QR), 보안 키로 패스키를 만들 수 있습니다.'
+                  : '이 브라우저는 패스키를 지원하지 않습니다 (HTTPS 필요). 결제 화면의 데모 인증으로 시연할 수 있습니다.'}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => register(false)} disabled={!supported || registering} className="btn-primary text-sm disabled:opacity-40">
-                <FingerPrintIcon className="h-4 w-4 mr-1.5" /> 패스키 등록
-              </button>
-              <button onClick={() => register(true)} disabled={registering} className="btn-secondary text-sm">
-                데모 패스키로 등록
-              </button>
-            </div>
+            <button onClick={register} disabled={!supported || !server || registering} className="btn-primary text-sm disabled:opacity-40">
+              <FingerPrintIcon className="h-4 w-4 mr-1.5" /> {registering ? '등록 중…' : '패스키 등록'}
+            </button>
           </div>
         )}
       </Section>

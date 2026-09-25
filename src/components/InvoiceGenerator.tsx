@@ -17,6 +17,7 @@ import { categoryById, METHOD_LABELS } from '../data/constants';
 import { formatDate, formatDateTime, won } from '../utils/format';
 import { downloadFile, toCsv } from '../utils/csv';
 import { EmptyState, Modal, Page, PageHeader, Row, Segmented, StatusTag, TaxTag, approvalLabel, fade, taxLabel, useToast } from './ui';
+import { authorizationLabel } from '../utils/passkey';
 import { Invoice } from '../types';
 
 type Tab = 'all' | 'pending' | 'approved' | 'rejected' | 'unfiled';
@@ -366,6 +367,13 @@ const InvoiceDetail: React.FC<{ invoice: Invoice; onPreview: () => void }> = ({ 
           <Row label="가맹점" value={invoice.merchant} />
           <Row label="거래일시" value={formatDateTime(invoice.date)} />
           {tx && <Row label="결제 수단" value={METHOD_LABELS[tx.method]} />}
+          {tx?.authorization && (
+            <Row
+              label="결제 인증"
+              value={`${authorizationLabel(tx.authorization)}${tx.authorization.approvalId ? ` · ${tx.authorization.approvalId}` : ''}`}
+              tone={tx.authorization.method === 'demo' ? 'muted' : 'default'}
+            />
+          )}
         </div>
       </div>
 

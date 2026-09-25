@@ -6,6 +6,7 @@ import {
   FlowPayState,
   Invoice,
   LineItem,
+  PaymentAuthorization,
   PaymentMethodId,
   Profile,
   Receipt,
@@ -55,6 +56,7 @@ export interface PayInput {
   projectId?: string;
   autoClassified: boolean;
   memo?: string;
+  authorization?: PaymentAuthorization;
 }
 
 export interface ReceiptInput {
@@ -158,6 +160,7 @@ export const FlowPayProvider: React.FC<{ children: React.ReactNode; initialState
         status: 'completed',
         autoClassified: input.autoClassified,
         memo: input.memo,
+        authorization: input.authorization,
       };
       // FlowPay 결제는 자동 전표 생성 (설정에서 끌 수 있음). 일반 결제는 영수증 첨부 후 전표 생성.
       const invoice =

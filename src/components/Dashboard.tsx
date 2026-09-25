@@ -19,6 +19,7 @@ import { completed, departmentName, inPeriod, myTransactions, needsReceipt, sum 
 import { categoryById } from '../data/constants';
 import { formatDate, pctChange, periodRange, won } from '../utils/format';
 import { fade } from './ui';
+import { hasServerPasskey } from '../utils/passkey';
 
 const Change: React.FC<{ value: number | null; invert?: boolean }> = ({ value, invert }) => {
   if (value === null) return <span className="text-xs text-gray-400" title="직전 기간 데이터가 없습니다">비교 없음</span>;
@@ -105,7 +106,7 @@ const Dashboard: React.FC = () => {
           cta: '영수증 첨부',
         }]
       : []),
-    ...(!profile.passkey
+    ...(!hasServerPasskey(profile.passkey)
       ? [{
           key: 'passkey',
           icon: FingerPrintIcon,
@@ -261,12 +262,7 @@ const Dashboard: React.FC = () => {
             <div className="border-t border-gray-100 pt-4 mt-auto space-y-3">
               <StatusLine label="1-Click 결제" on={settings.oneClick} onText="사용 중" offText="꺼짐" />
               <StatusLine label="자동 분류" on={settings.autoClassify} onText="켜짐" offText="꺼짐" />
-              <StatusLine
-                label="패스키"
-                on={!!profile.passkey}
-                onText={profile.passkey?.simulated ? '등록됨 (데모)' : '등록됨'}
-                offText="미등록"
-              />
+              <StatusLine label="패스키" on={hasServerPasskey(profile.passkey)} onText="서버 검증 등록됨" offText="미등록" />
             </div>
           </motion.div>
         </div>

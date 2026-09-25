@@ -1,96 +1,121 @@
-// FIDO2 패스키 (WebAuthn)
-// 지원 환경(HTTPS + 플랫폼 인증기)에서는 실제 지문/Face ID 인증을 사용하고,
-// 미지원 환경에서는 데모용 시뮬레이션으로 대체할 수 있도록 오류를 구분해 던집니다.
-// 서버가 없는 데모이므로 챌린지는 클라이언트에서 생성하며, 서명 검증은 생략합니다.
+// FIDO2 패스키 클라이언트
+// 챌린지 발급과 서명 검증은 인증 서버(/api)가 담당하고, 브라우저는 WebAuthn 의식만 수행합니다.
+//   등록: /api/webauthn/register-options → navigator.credentials.create → /api/webauthn/register-verify
+//   결제: /api/payments/options → navigator.credentials.get → /api/payments/authorize
 
-import { shortId } from './flowId';
+import { browserSupportsWebAuthn, startAuthentication, startRegistration } from '@simplewebauthn/browser';
+import { Passkey, PaymentAuthorization } from '../types';
 
 export class PasskeyUnsupportedError extends Error {}
 export class PasskeyCancelledError extends Error {}
+export class AuthServerError extends Error {
+  constructor(public code: string, message: string) {
+    super(message);
+  }
+}
 
-const randomChallenge = () => {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return bytes;
-};
+export interface ServerStatus {
+  ok: boolean;
+  keyMode: 'configured' | 'demo';
+  originAllowed: boolean;
+}
 
-const toBase64Url = (buf: ArrayBuffer) =>
-  btoa(String.fromCharCode(...Array.from(new Uint8Array(buf))))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-
-const fromBase64Url = (s: string) => {
-  const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
-  const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
-  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
-};
-
-export const isPasskeySupported = async (): Promise<boolean> => {
-  if (typeof window === 'undefined' || !window.isSecureContext || !window.PublicKeyCredential) return false;
+const post = async <T,>(path: string, body: unknown): Promise<T> => {
+  let res: Response;
   try {
-    return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new AuthServerError('NETWORK', '인증 서버에 연결할 수 없습니다.');
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data) {
+    throw new AuthServerError(data?.error ?? `HTTP_${res.status}`, data?.message ?? `인증 서버 오류 (${res.status})`);
+  }
+  return data as T;
+};
+
+/** 브라우저 WebAuthn 오류를 사용자에게 보여줄 오류로 변환 */
+const mapCeremonyError = (e: unknown): never => {
+  const err = e as { name?: string; code?: string; cause?: { name?: string } };
+  const name = err?.cause?.name ?? err?.name;
+  if (name === 'NotAllowedError' || name === 'AbortError' || err?.code === 'ERROR_CEREMONY_ABORTED') {
+    throw new PasskeyCancelledError('생체 인증이 취소되었거나 시간이 초과되었습니다.');
+  }
+  if (name === 'NotSupportedError' || name === 'SecurityError' || err?.code === 'ERROR_INVALID_DOMAIN') {
+    throw new PasskeyUnsupportedError('이 환경에서는 패스키를 사용할 수 없습니다.');
+  }
+  if (name === 'InvalidStateError') {
+    throw new PasskeyCancelledError('이 기기에 이미 등록된 패스키입니다.');
+  }
+  throw e;
+};
+
+export const isPasskeySupported = (): boolean =>
+  typeof window !== 'undefined' && window.isSecureContext && browserSupportsWebAuthn();
+
+/** 서버에서 발급받은 패스키인지 (이전 버전의 로컬 전용 패스키는 제외) */
+export const hasServerPasskey = (passkey?: Partial<Passkey>): passkey is Passkey => !!passkey?.certificate;
+
+export const getServerStatus = async (): Promise<ServerStatus | null> => {
+  try {
+    return await post<ServerStatus>('/api/health', {});
+  } catch {
+    return null;
+  }
+};
+
+/** 패스키 등록: 서버가 attestation을 검증하고 자격 증명서를 발급합니다. */
+export const registerPasskey = async (flowId: string): Promise<Passkey> => {
+  if (!isPasskeySupported()) throw new PasskeyUnsupportedError('이 브라우저는 패스키를 지원하지 않습니다 (HTTPS 필요).');
+  const { options, token } = await post<{ options: any; token: string }>('/api/webauthn/register-options', { flowId });
+  const response = await startRegistration({ optionsJSON: options }).catch(mapCeremonyError);
+  return post<Passkey>('/api/webauthn/register-verify', { token, response });
+};
+
+/** 결제 인증: 결제 내용에 묶인 챌린지에 서명하고, 서버 검증을 통과하면 승인서를 받습니다. */
+export const authorizePayment = async (params: {
+  flowId: string;
+  amount: number;
+  merchant: string;
+  passkey: Passkey;
+}): Promise<PaymentAuthorization> => {
+  if (!isPasskeySupported()) throw new PasskeyUnsupportedError('이 브라우저는 패스키를 지원하지 않습니다 (HTTPS 필요).');
+  const { options, token } = await post<{ options: any; token: string }>('/api/payments/options', {
+    flowId: params.flowId,
+    amount: params.amount,
+    merchant: params.merchant,
+    certificate: params.passkey.certificate,
+  });
+  const response = await startAuthentication({ optionsJSON: options }).catch(mapCeremonyError);
+  const { approval, approvalToken } = await post<{
+    approval: { approvalId: string; verifiedAt: string; keyMode: 'configured' | 'demo' };
+    approvalToken: string;
+  }>('/api/payments/authorize', { token, certificate: params.passkey.certificate, response });
+  return {
+    method: 'passkey',
+    approvalId: approval.approvalId,
+    verifiedAt: approval.verifiedAt,
+    keyMode: approval.keyMode,
+    approvalToken,
+  };
+};
+
+/** 저장된 결제 승인서를 서버에 재검증 */
+export const verifyApproval = async (approvalToken: string): Promise<boolean> => {
+  try {
+    const { valid } = await post<{ valid: boolean }>('/api/payments/verify-approval', { approvalToken });
+    return valid;
   } catch {
     return false;
   }
 };
 
-const wrapError = (e: unknown): never => {
-  if (e instanceof DOMException && (e.name === 'NotAllowedError' || e.name === 'AbortError')) {
-    throw new PasskeyCancelledError('인증이 취소되었거나 시간이 초과되었습니다.');
-  }
-  if (e instanceof DOMException && (e.name === 'NotSupportedError' || e.name === 'SecurityError')) {
-    throw new PasskeyUnsupportedError('이 환경에서는 패스키를 사용할 수 없습니다.');
-  }
-  throw e;
+export const authorizationLabel = (a?: PaymentAuthorization): string | undefined => {
+  if (!a) return undefined;
+  if (a.method === 'demo') return '데모 인증 (생체인증·서버 검증 없음)';
+  return `패스키 · 서버 검증${a.keyMode === 'demo' ? ' (데모 키)' : ''}`;
 };
-
-/** 패스키 등록. 사용자 정보에는 Flow ID만 담아 개인정보를 남기지 않습니다. */
-export const registerPasskey = async (flowId: string): Promise<string> => {
-  if (!(await isPasskeySupported())) throw new PasskeyUnsupportedError('이 기기는 패스키를 지원하지 않습니다.');
-  const userId = new TextEncoder().encode(`flowpay-${flowId}-${shortId(8)}`);
-  try {
-    const cred = (await navigator.credentials.create({
-      publicKey: {
-        challenge: randomChallenge(),
-        rp: { name: 'FlowPay' },
-        user: { id: userId, name: flowId, displayName: `Flow ID ${flowId}` },
-        pubKeyCredParams: [
-          { type: 'public-key', alg: -7 },
-          { type: 'public-key', alg: -257 },
-        ],
-        authenticatorSelection: {
-          authenticatorAttachment: 'platform',
-          userVerification: 'required',
-          residentKey: 'preferred',
-        },
-        timeout: 60000,
-        attestation: 'none',
-      },
-    })) as PublicKeyCredential | null;
-    if (!cred) throw new PasskeyCancelledError('패스키 등록이 취소되었습니다.');
-    return toBase64Url(cred.rawId);
-  } catch (e) {
-    return wrapError(e);
-  }
-};
-
-/** 결제 승인용 패스키 인증 */
-export const authenticatePasskey = async (credentialId: string): Promise<void> => {
-  if (!(await isPasskeySupported())) throw new PasskeyUnsupportedError('이 기기는 패스키를 지원하지 않습니다.');
-  try {
-    const assertion = await navigator.credentials.get({
-      publicKey: {
-        challenge: randomChallenge(),
-        allowCredentials: [{ type: 'public-key', id: fromBase64Url(credentialId) }],
-        userVerification: 'required',
-        timeout: 60000,
-      },
-    });
-    if (!assertion) throw new PasskeyCancelledError('인증이 취소되었습니다.');
-  } catch (e) {
-    wrapError(e);
-  }
-};
-
-export const simulatedCredentialId = () => `demo-${shortId(12)}`;

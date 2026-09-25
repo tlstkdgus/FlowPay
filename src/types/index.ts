@@ -76,6 +76,8 @@ export interface Transaction {
   receiptId?: string;
   invoiceId?: string;
   memo?: string;
+  /** FlowPay 결제의 인증 기록 */
+  authorization?: PaymentAuthorization;
 }
 
 export interface Receipt {
@@ -120,11 +122,26 @@ export interface Invoice {
   createdAt: string;
 }
 
+/** 서버가 attestation을 검증한 뒤 발급한 패스키 자격 증명 */
 export interface Passkey {
   credentialId: string;
+  /** 서버 서명 토큰 (공개키·Flow ID·도메인 포함). 결제 인증 시 서버에 제출 */
+  certificate: string;
   createdAt: string;
-  /** WebAuthn 미지원 환경에서 데모용으로 등록한 경우 */
-  simulated: boolean;
+  deviceType?: 'singleDevice' | 'multiDevice';
+  backedUp?: boolean;
+}
+
+/** 결제 인증 기록 */
+export interface PaymentAuthorization {
+  /** passkey: 서버가 FIDO2 서명을 검증 / demo: 생체인증·서버 검증 없음 */
+  method: 'passkey' | 'demo';
+  approvalId?: string;
+  verifiedAt?: string;
+  /** 서버 서명 키 종류 (demo: 공개 데모 키) */
+  keyMode?: 'configured' | 'demo';
+  /** 서버가 서명한 결제 승인서 (재검증용) */
+  approvalToken?: string;
 }
 
 export interface Profile {

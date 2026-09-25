@@ -89,7 +89,7 @@ describe('reducer', () => {
   it('Flow ID 재발급 시 이전 ID를 보관하고 패스키를 해제한다', () => {
     const withKey = reducer(base, {
       type: 'UPDATE_PROFILE',
-      patch: { passkey: { credentialId: 'x', createdAt: 'y', simulated: true } },
+      patch: { passkey: { credentialId: 'x', certificate: 'c', createdAt: 'y' } },
     });
     const s = reducer(withKey, { type: 'REISSUE_FLOW_ID', flowId: 'ABCDEF' });
     expect(s.profile).toMatchObject({ flowId: 'ABCDEF', previousFlowIds: ['XK8P2M'], passkey: undefined });

@@ -19,8 +19,15 @@ import { checkBudget, departmentName, projectName } from '../store/selectors';
 import { CATEGORIES, GENERAL_METHODS, MERCHANTS, METHOD_LABELS, SIMPLE_METHODS, categoryById } from '../data/constants';
 import { classify } from '../utils/classifier';
 import { won } from '../utils/format';
-import { authenticatePasskey, PasskeyCancelledError, PasskeyUnsupportedError } from '../utils/passkey';
-import { CategoryId, Invoice, LineItem, PaymentMethodId, Transaction } from '../types';
+import {
+  AuthServerError,
+  authorizationLabel,
+  authorizePayment,
+  hasServerPasskey,
+  PasskeyCancelledError,
+  PasskeyUnsupportedError,
+} from '../utils/passkey';
+import { CategoryId, Invoice, LineItem, PaymentAuthorization, PaymentMethodId, Transaction } from '../types';
 
 type Step = 'cart' | 'payment' | 'auth' | 'processing' | 'workflow' | 'success' | 'error';
 
@@ -47,6 +54,7 @@ const PGPayment: React.FC = () => {
   const [memo, setMemo] = useState('');
   const [workflowStep, setWorkflowStep] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
   const [result, setResult] = useState<{ transaction: Transaction; invoice?: Invoice } | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -90,7 +98,9 @@ const PGPayment: React.FC = () => {
 
   const later = (fn: () => void, ms: number) => timers.current.push(setTimeout(fn, ms));
 
-  const commit = (m: PaymentMethodId) =>
+  const passkey = hasServerPasskey(profile.passkey) ? profile.passkey : undefined;
+
+  const commit = (m: PaymentMethodId, authorization?: PaymentAuthorization) =>
     pay({
       merchant: merchant.name,
       items,
@@ -100,10 +110,11 @@ const PGPayment: React.FC = () => {
       projectId: classification.projectId,
       autoClassified: isAuto,
       memo: memo.trim() || undefined,
+      authorization,
     });
 
-  const runWorkflow = () => {
-    const r = commit('flowpay');
+  const runWorkflow = (authorization: PaymentAuthorization) => {
+    const r = commit('flowpay', authorization);
     setResult(r);
     setStep('workflow');
     setWorkflowStep(1);
@@ -111,33 +122,38 @@ const PGPayment: React.FC = () => {
     later(() => setStep('success'), 5 * 650);
   };
 
+  // 패스키 인증: 서버가 결제 내용에 묶인 챌린지를 발급하고, 생체인증 서명을 검증해 승인서를 발급
   const authenticate = async () => {
+    if (!passkey || authBusy) return;
+    setAuthBusy(true);
     try {
-      if (profile.passkey && !profile.passkey.simulated) {
-        await authenticatePasskey(profile.passkey.credentialId);
-      } else {
-        // 데모 인증 (WebAuthn 미지원 환경 또는 데모 패스키)
-        await new Promise((r) => later(() => r(undefined), 900));
-      }
-      runWorkflow();
+      const authorization = await authorizePayment({ flowId: profile.flowId, amount: total, merchant: merchant.name, passkey });
+      runWorkflow(authorization);
     } catch (e) {
       if (e instanceof PasskeyUnsupportedError) {
         setErrorMessage('이 기기에서는 등록된 패스키를 사용할 수 없습니다. 설정에서 패스키를 다시 등록해주세요.');
       } else if (e instanceof PasskeyCancelledError) {
         setErrorMessage('생체 인증이 취소되어 결제가 진행되지 않았습니다.');
+      } else if (e instanceof AuthServerError) {
+        setErrorMessage(`인증 서버가 결제를 승인하지 않았습니다: ${e.message}`);
       } else {
         setErrorMessage('인증 중 알 수 없는 오류가 발생했습니다.');
       }
       setStep('error');
+    } finally {
+      setAuthBusy(false);
     }
   };
+
+  // 데모 인증: 패스키가 없는 기기에서 시연용. 생체인증·서버 검증 없이 진행하며 거래에 '데모'로 기록
+  const authenticateDemo = () => runWorkflow({ method: 'demo' });
 
   const handlePayment = () => {
     if (!method || blocked || !items.length) return;
     if (method === 'flowpay') {
       setStep('auth');
       // 1-Click: 등록된 패스키가 있으면 인증 창을 바로 띄움
-      if (settings.oneClick && profile.passkey) authenticate();
+      if (settings.oneClick && passkey) authenticate();
       return;
     }
     setStep('processing');
@@ -160,7 +176,13 @@ const PGPayment: React.FC = () => {
   };
 
   const workflowSteps = [
-    { title: '결제 인증', description: profile.passkey ? '패스키 생체 인증 완료' : '데모 인증 완료' },
+    {
+      title: '결제 인증',
+      description:
+        result?.transaction.authorization?.method === 'passkey'
+          ? `서버 서명 검증 완료 · ${result.transaction.authorization.approvalId}`
+          : '데모 인증 (서버 검증 없음)',
+    },
     {
       title: '자동 분류',
       description: `${departmentName(state, classification.departmentId)} · ${categoryById(classification.categoryId).name}`,
@@ -417,7 +439,7 @@ const PGPayment: React.FC = () => {
                 disabled={!method || blocked}
                 className="btn-primary w-full py-4 disabled:opacity-30 disabled:pointer-events-none"
               >
-                {method === 'flowpay' && profile.passkey && settings.oneClick ? (
+                {method === 'flowpay' && passkey && settings.oneClick ? (
                   <>
                     <FingerPrintIcon className="h-5 w-5 mr-1.5" /> {won(total)} 1-Click 결제
                   </>
@@ -431,27 +453,35 @@ const PGPayment: React.FC = () => {
           {step === 'auth' && (
             <motion.div key="auth" {...panel} className="p-6 py-14 text-center">
               <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-6">
-                <FingerPrintIcon className="h-10 w-10 text-gray-900" />
+                {authBusy ? (
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-900 border-t-transparent" />
+                ) : (
+                  <FingerPrintIcon className="h-10 w-10 text-gray-900" />
+                )}
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">생체 인증</h3>
               <p className="text-sm text-gray-500 mb-8">
-                {profile.passkey
-                  ? profile.passkey.simulated
-                    ? '데모 패스키로 인증합니다.'
-                    : '지문 또는 Face ID로 결제를 승인하세요.'
-                  : '등록된 패스키가 없어 데모 인증으로 진행합니다.'}
+                {passkey
+                  ? authBusy
+                    ? '인증 창에서 지문 또는 Face ID로 승인하세요. 서명은 서버에서 검증됩니다.'
+                    : `${merchant.name} ${won(total)} 결제를 패스키로 승인합니다.`
+                  : '등록된 패스키가 없습니다. 설정에서 패스키를 등록하거나 데모 인증으로 진행하세요.'}
               </p>
-              <button onClick={authenticate} className="btn-primary w-full py-4 mb-2">
-                {won(total)} 인증하기
-              </button>
-              <button onClick={() => setStep('payment')} className="btn-secondary w-full py-4">
-                취소
-              </button>
-              {!profile.passkey && (
-                <Link to="/settings" className="block text-sm text-flow-600 font-medium mt-5">
-                  패스키 등록하러 가기
+              {passkey ? (
+                <button onClick={authenticate} disabled={authBusy} className="btn-primary w-full py-4 mb-2 disabled:opacity-40">
+                  <FingerPrintIcon className="h-5 w-5 mr-1.5" /> {authBusy ? '인증 중…' : `${won(total)} 패스키로 인증`}
+                </button>
+              ) : (
+                <Link to="/settings" className="btn-primary w-full py-4 mb-2">
+                  <FingerPrintIcon className="h-5 w-5 mr-1.5" /> 패스키 등록하러 가기
                 </Link>
               )}
+              <button onClick={() => setStep('payment')} disabled={authBusy} className="btn-secondary w-full py-4 disabled:opacity-40">
+                취소
+              </button>
+              <button onClick={authenticateDemo} disabled={authBusy} className="block w-full text-sm text-gray-500 hover:text-gray-900 mt-5 disabled:opacity-40">
+                데모 인증으로 진행 <span className="text-gray-400">(생체인증·서버 검증 없음)</span>
+              </button>
             </motion.div>
           )}
 
@@ -540,6 +570,16 @@ const PGPayment: React.FC = () => {
                   <Row label="결제 금액" value={won(result.transaction.amount)} bold />
                   <Row label="결제 수단" value={METHOD_LABELS[result.transaction.method]} />
                   <Row label="Flow ID" value={result.transaction.flowId} mono />
+                  {result.transaction.authorization && (
+                    <Row
+                      label="결제 인증"
+                      value={authorizationLabel(result.transaction.authorization)}
+                      tone={result.transaction.authorization.method === 'demo' ? 'muted' : 'default'}
+                    />
+                  )}
+                  {result.transaction.authorization?.approvalId && (
+                    <Row label="승인 번호" value={result.transaction.authorization.approvalId} />
+                  )}
                   <div className="border-t border-gray-200 my-1" />
                   <Row label="부서" value={departmentName(state, result.transaction.departmentId)} />
                   <Row

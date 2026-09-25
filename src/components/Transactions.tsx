@@ -14,6 +14,7 @@ import { CATEGORIES, METHOD_LABELS, categoryById } from '../data/constants';
 import { PERIODS, PeriodId, formatDateTime, periodRange, won } from '../utils/format';
 import { downloadFile, toCsv } from '../utils/csv';
 import { EmptyState, Field, Modal, Page, PageHeader, Row, StatusTag, TaxTag, useToast } from './ui';
+import { authorizationLabel, verifyApproval } from '../utils/passkey';
 import { CategoryId, Transaction } from '../types';
 
 const PAGE_SIZE = 30;
@@ -291,6 +292,29 @@ const TransactionDetail: React.FC<{ transaction?: Transaction; onClose: () => vo
           <Row label="일시" value={formatDateTime(t.date)} />
           <Row label="Flow ID" value={t.flowId} mono />
           <Row label="결제 수단" value={METHOD_LABELS[t.method]} />
+          {t.authorization && (
+            <>
+              <Row
+                label="결제 인증"
+                value={authorizationLabel(t.authorization)}
+                tone={t.authorization.method === 'demo' ? 'muted' : 'default'}
+              />
+              {t.authorization.approvalId && <Row label="승인 번호" value={t.authorization.approvalId} />}
+              {t.authorization.approvalToken && (
+                <div className="text-right">
+                  <button
+                    onClick={async () => {
+                      const ok = await verifyApproval(t.authorization!.approvalToken!);
+                      toast(ok ? '서버가 발급한 유효한 결제 승인서입니다' : '승인서를 확인할 수 없습니다 (변조 또는 서버 키 변경)', ok ? 'success' : 'error');
+                    }}
+                    className="text-xs text-flow-600 font-medium"
+                  >
+                    서버에서 승인서 확인
+                  </button>
+                </div>
+              )}
+            </>
+          )}
           {t.memo && <Row label="메모" value={t.memo} />}
         </div>
 
