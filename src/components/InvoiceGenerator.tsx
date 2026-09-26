@@ -1,367 +1,763 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
+  DocumentTextIcon,
   ArrowDownTrayIcon,
   PrinterIcon,
   DocumentMagnifyingGlassIcon,
+  MagnifyingGlassIcon,
+  PaperAirplaneIcon,
   PlusIcon,
+  CheckIcon,
 } from '@heroicons/react/24/outline';
-import { PageHeader, Highlight, AutoColumnsPill } from './ui';
+import { useFlowPay } from '../store/FlowPayContext';
+import { departmentName, projectName } from '../store/selectors';
+import { categoryById, METHOD_LABELS } from '../data/constants';
+import { formatDate, formatDateTime, won } from '../utils/format';
+import { downloadFile, toCsv } from '../utils/csv';
+import {
+  AutoColumnsPill,
+  EmptyState,
+  Highlight,
+  Modal,
+  Page,
+  PageHeader,
+  Row,
+  Segmented,
+  StatusTag,
+  TaxTag,
+  approvalLabel,
+  fade,
+  taxLabel,
+  useToast,
+} from './ui';
+import { authorizationLabel } from '../utils/passkey';
+import { Invoice } from '../types';
 
-interface InvoiceData {
-  id: string;
-  flowId: string;
-  merchant: string;
-  amount: number;
-  date: string;
-  department: string;
-  category: string;
-  items: Array<{ name: string; quantity: number; price: number; total: number }>;
-  status: 'pending' | 'generated' | 'approved' | 'rejected';
-  approvalStatus?: 'pending' | 'approved' | 'rejected';
-  approver?: string;
-  approvalDate?: string;
-  notes?: string;
-}
+type Tab = 'all' | 'pending' | 'approved' | 'rejected' | 'unfiled';
 
-const generationSteps = [
-  '데이터 수집 중...',
-  '전표 형식 생성 중...',
-  '부서 정보 매칭 중...',
-  '승인 워크플로우 설정 중...',
-  '국세청 연동 중...',
-  '전표 생성 완료!',
-];
+const generationSteps = ['거래 데이터 수집 중', '계정과목 매핑 중', '공급가액·부가세 계산 중', '부서 승인자 배정 중', '전표 생성 완료'];
 
-const statusLabel = (s?: string) => (s === 'approved' ? '승인됨' : s === 'rejected' ? '거부됨' : '대기중');
-
-const statusBadge = (s?: string) => {
-  if (s === 'approved') return 'badge-success';
-  if (s === 'rejected') return 'badge-error';
-  return 'badge-warning';
-};
-
-const StatusTag: React.FC<{ status?: string }> = ({ status }) => (
-  <span className={`badge ${statusBadge(status)} gap-1`}>
-    <span className="w-1.5 h-1.5 rounded-full bg-current" />
-    {statusLabel(status)}
-  </span>
-);
+const PAGE_SIZE = 30;
 
 const InvoiceGenerator: React.FC = () => {
-  const [invoices, setInvoices] = useState<InvoiceData[]>([]);
-  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generationStep, setGenerationStep] = useState(0);
+  const { state, setApproval, submitTax, createInvoices } = useFlowPay();
+  const toast = useToast();
+  const [params, setParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>('all');
+  const [query, setQuery] = useState('');
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [limit, setLimit] = useState(PAGE_SIZE);
+  const [showCreate, setShowCreate] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const detailRef = useRef<HTMLDivElement>(null);
+
+  const selectedId = params.get('id');
+  const selected = state.invoices.find((i) => i.id === selectedId) ?? null;
+
+  const counts = useMemo(
+    () => ({
+      all: state.invoices.length,
+      pending: state.invoices.filter((i) => i.approvalStatus === 'pending').length,
+      approved: state.invoices.filter((i) => i.approvalStatus === 'approved').length,
+      rejected: state.invoices.filter((i) => i.approvalStatus === 'rejected').length,
+      unfiled: state.invoices.filter((i) => i.approvalStatus === 'approved' && i.taxStatus === 'not_submitted').length,
+    }),
+    [state.invoices]
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return state.invoices.filter((i) => {
+      const tabOk =
+        tab === 'all' ||
+        (tab === 'unfiled' ? i.approvalStatus === 'approved' && i.taxStatus === 'not_submitted' : i.approvalStatus === tab);
+      return tabOk && (!q || [i.id, i.merchant, i.flowId, departmentName(state, i.departmentId)].some((v) => v.toLowerCase().includes(q)));
+    });
+  }, [state, tab, query]);
 
   useEffect(() => {
-    setInvoices([
-      {
-        id: 'INV-2024-001', flowId: 'XK8P2M', merchant: '스타벅스 강남점', amount: 4500, date: '2024-01-15',
-        department: '영업팀', category: '식비', items: [{ name: '아메리카노', quantity: 1, price: 4500, total: 4500 }],
-        status: 'generated', approvalStatus: 'approved', approver: '김과장', approvalDate: '2024-01-15',
-      },
-      {
-        id: 'INV-2024-002', flowId: 'XK8P2M', merchant: 'GS25 본사점', amount: 12000, date: '2024-01-15',
-        department: '마케팅팀', category: '업무용품',
-        items: [
-          { name: 'A4용지', quantity: 2, price: 5000, total: 10000 },
-          { name: '펜', quantity: 5, price: 400, total: 2000 },
-        ],
-        status: 'generated', approvalStatus: 'pending',
-      },
-      {
-        id: 'INV-2024-003', flowId: 'XK8P2M', merchant: '맥도날드', amount: 8500, date: '2024-01-14',
-        department: '개발팀', category: '식비', items: [{ name: '빅맥 세트', quantity: 1, price: 8500, total: 8500 }],
-        status: 'generated', approvalStatus: 'approved', approver: '박팀장', approvalDate: '2024-01-14',
-      },
-      {
-        id: 'INV-2024-004', flowId: 'XK8P2M', merchant: '올리브영', amount: 32000, date: '2024-01-14',
-        department: '인사팀', category: '복리후생', items: [{ name: '화장품 세트', quantity: 1, price: 32000, total: 32000 }],
-        status: 'generated', approvalStatus: 'rejected', approver: '이부장', approvalDate: '2024-01-14', notes: '복리후생 예산 초과',
-      },
-    ]);
-  }, []);
+    setLimit(PAGE_SIZE);
+    setChecked(new Set());
+  }, [tab, query]);
 
-  const generateInvoice = async (flowId: string) => {
-    setIsGenerating(true);
-    setGenerationStep(0);
-    try {
-      for (let i = 0; i < generationSteps.length; i++) {
-        setGenerationStep(i);
-        await new Promise((resolve) => setTimeout(resolve, 700));
-      }
-      const newInvoice: InvoiceData = {
-        id: `INV-2024-${String(invoices.length + 1).padStart(3, '0')}`,
-        flowId, merchant: '새로운 가맹점', amount: Math.floor(Math.random() * 50000) + 10000,
-        date: new Date().toISOString().split('T')[0], department: '관리부', category: '기타',
-        items: [{ name: '상품', quantity: 1, price: 15000, total: 15000 }],
-        status: 'generated', approvalStatus: 'pending',
-      };
-      setInvoices((prev) => [newInvoice, ...prev]);
-      setSelectedInvoice(newInvoice);
-    } catch (error) {
-      console.error('전표 생성 중 오류:', error);
-    } finally {
-      setIsGenerating(false);
-    }
+  const select = (id: string) => {
+    setParams({ id }, { replace: true });
+    if (window.innerWidth < 1024) setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
 
-  const approveInvoice = (invoiceId: string, approved: boolean) => {
-    setInvoices((prev) =>
-      prev.map((invoice) =>
-        invoice.id === invoiceId
-          ? {
-              ...invoice,
-              approvalStatus: approved ? 'approved' : 'rejected',
-              approver: '김과장',
-              approvalDate: new Date().toISOString().split('T')[0],
-              notes: approved ? undefined : '승인 거부',
-            }
-          : invoice
-      )
-    );
-    setSelectedInvoice((prev) =>
-      prev && prev.id === invoiceId
-        ? { ...prev, approvalStatus: approved ? 'approved' : 'rejected', approver: '김과장', approvalDate: new Date().toISOString().split('T')[0], notes: approved ? undefined : '승인 거부' }
-        : prev
-    );
+  const toggleCheck = (id: string) =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const visible = filtered.slice(0, limit);
+  const allChecked = visible.length > 0 && visible.every((i) => checked.has(i.id));
+  const checkedList = state.invoices.filter((i) => checked.has(i.id));
+  const approvable = checkedList.filter((i) => i.approvalStatus === 'pending').map((i) => i.id);
+  const fileable = checkedList.filter((i) => i.approvalStatus === 'approved' && i.taxStatus === 'not_submitted').map((i) => i.id);
+
+  const bulkApprove = () => {
+    setApproval(approvable, 'approved');
+    toast(`${approvable.length}건을 승인했습니다`);
+    setChecked(new Set());
   };
 
-  const downloadInvoice = (invoice: InvoiceData) => {
-    const content = `FlowPay 전표
+  const bulkFile = () => {
+    submitTax(fileable);
+    toast(`${fileable.length}건을 국세청(홈택스)으로 전송합니다`, 'info');
+    setChecked(new Set());
+  };
 
-전표번호: ${invoice.id}
-Flow ID: ${invoice.flowId}
-가맹점: ${invoice.merchant}
-금액: ₩${invoice.amount.toLocaleString()}
-날짜: ${invoice.date}
-부서: ${invoice.department}
-카테고리: ${invoice.category}
-
-상품 내역:
-${invoice.items.map((item) => `${item.name} x${item.quantity} - ₩${item.total.toLocaleString()}`).join('\n')}
-
-승인 상태: ${statusLabel(invoice.approvalStatus)}
-${invoice.approver ? `승인자: ${invoice.approver}` : ''}
-${invoice.approvalDate ? `승인일: ${invoice.approvalDate}` : ''}`;
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${invoice.id}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const exportCsv = () => {
+    const csv = toCsv(
+      ['전표번호', '거래일시', 'Flow ID', '가맹점', '공급가액', '부가세', '합계', '부서', '계정과목', '계정코드', '프로젝트', '승인자', '결재상태', '결재일', '반려사유', '국세청'],
+      filtered.map((i) => [
+        i.id,
+        formatDateTime(i.date),
+        i.flowId,
+        i.merchant,
+        i.supplyAmount,
+        i.vat,
+        i.amount,
+        departmentName(state, i.departmentId),
+        categoryById(i.categoryId).account,
+        categoryById(i.categoryId).accountCode,
+        i.projectId ? projectName(state, i.projectId) : '',
+        i.approver,
+        approvalLabel(i.approvalStatus),
+        i.approvalDate ? formatDate(i.approvalDate) : '',
+        i.rejectReason ?? '',
+        taxLabel(i.taxStatus),
+      ])
+    );
+    downloadFile(`FlowPay_전표_${new Date().toISOString().slice(0, 10)}.csv`, csv);
   };
 
   return (
-    <div className="px-5 sm:px-8 lg:px-12 py-10 sm:py-14">
-      <div className="max-w-6xl mx-auto">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-          <PageHeader
-            eyebrow="Invoice"
-            title={
-              <>
-                증빙·전표 처리를 <Highlight>자동화</Highlight>합니다
-              </>
-            }
-            description="Flow ID로 연결된 결제를 전표로 만들고, 승인까지 한 화면에서 처리합니다."
-            right={
-              <button
-                onClick={() => generateInvoice('XK8P2M')}
-                disabled={isGenerating}
-                className="btn-primary text-sm py-2.5 px-5 disabled:opacity-40 self-start sm:self-auto"
-              >
-                <PlusIcon className="h-4 w-4 mr-1.5" />
-                {isGenerating ? '생성 중…' : '새 전표 생성'}
-              </button>
-            }
+    <Page>
+      <PageHeader
+        eyebrow="Invoice"
+        title={
+          <>
+            증빙·전표 처리를 <Highlight>자동화</Highlight>합니다
+          </>
+        }
+        description="Flow ID 기반으로 생성된 전표를 결재하고, 승인된 전표를 국세청(홈택스)으로 전송합니다."
+        actions={
+          <>
+            <button onClick={exportCsv} disabled={!filtered.length} className="btn-secondary text-sm py-2.5 px-4 disabled:opacity-40">
+              <ArrowDownTrayIcon className="h-4 w-4 mr-1.5" /> CSV
+            </button>
+            <button onClick={() => setShowCreate(true)} className="btn-primary text-sm py-2.5 px-4">
+              <PlusIcon className="h-4 w-4 mr-1.5" /> 새 전표 생성
+            </button>
+          </>
+        }
+      />
+
+      {/* 요약 */}
+      <motion.div {...fade} className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+        {[
+          { id: 'pending' as Tab, label: '승인 대기', value: counts.pending, dot: 'bg-warning-500' },
+          { id: 'approved' as Tab, label: '승인 완료', value: counts.approved, dot: 'bg-flow-500' },
+          { id: 'unfiled' as Tab, label: '국세청 미전송', value: counts.unfiled, dot: 'bg-sky-500' },
+          { id: 'rejected' as Tab, label: '반려', value: counts.rejected, dot: 'bg-error-500' },
+        ].map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setTab(s.id)}
+            aria-pressed={tab === s.id}
+            className={`card p-4 sm:p-5 text-left card-hover ${tab === s.id ? 'border-2 border-flow-500 bg-flow-50' : ''}`}
+          >
+            <p className="flex items-center gap-1.5 text-sm font-medium text-gray-600">
+              <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+              {s.label}
+            </p>
+            <p className="text-2xl font-bold text-gray-900 tabular-nums mt-2">
+              {s.value} <span className="text-base font-semibold text-gray-400">건</span>
+            </p>
+          </button>
+        ))}
+      </motion.div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6">
+        {/* 전표 목록 */}
+        <div className="lg:col-span-3 card">
+          <Segmented
+            className="mb-3"
+            value={tab}
+            onChange={(id) => setTab(id as Tab)}
+            options={[
+              { id: 'all', name: '전체', count: counts.all },
+              { id: 'pending', name: '대기', count: counts.pending },
+              { id: 'approved', name: '승인', count: counts.approved },
+              { id: 'rejected', name: '반려', count: counts.rejected },
+            ]}
           />
-        </motion.div>
+          <div className="relative mb-4">
+            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <input className="input-field pl-11" placeholder="전표번호, 가맹점, Flow ID, 부서 검색" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          {/* 전표 목록 — 발표자료 전표 테이블 */}
-          <div className="lg:col-span-2">
-            <div className="card">
-              <div className="flex items-baseline justify-between mb-4 gap-3">
-                <h2 className="card-title">
-                  관리부 <span className="text-gray-400 font-semibold">전표 목록</span>
-                </h2>
-                <span className="text-xs text-gray-400 whitespace-nowrap">{invoices.length}건</span>
-              </div>
+          {/* 일괄 처리 바 */}
+          <div className="flex flex-wrap items-center gap-2 mb-3 min-h-[40px]">
+            <label className="flex items-center gap-2 text-sm text-gray-500 mr-auto cursor-pointer">
+              <input
+                type="checkbox"
+                className="rounded text-flow-500 focus:ring-flow-500"
+                checked={allChecked}
+                onChange={() => setChecked(allChecked ? new Set() : new Set(visible.map((i) => i.id)))}
+              />
+              {checked.size ? `${checked.size}건 선택` : '전체 선택'}
+            </label>
+            {approvable.length > 0 && (
+              <button onClick={bulkApprove} className="btn-success text-sm py-2 px-4">
+                <CheckIcon className="h-4 w-4 mr-1" /> {approvable.length}건 승인
+              </button>
+            )}
+            {fileable.length > 0 && (
+              <button onClick={bulkFile} className="btn-accent text-sm py-2 px-4">
+                <PaperAirplaneIcon className="h-4 w-4 mr-1" /> {fileable.length}건 국세청 전송
+              </button>
+            )}
+          </div>
 
-              {isGenerating && (
-                <div className="rounded-2xl bg-flow-50 p-4 mb-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="w-6 h-6 rounded-full bg-flow-500 text-white text-xs font-bold flex items-center justify-center">
-                      {generationStep + 1}
-                    </span>
-                    <span className="text-sm font-semibold text-gray-900">{generationSteps[generationStep]}</span>
-                  </div>
-                  <div className="progress-bar bg-white">
-                    <div className="progress-fill" style={{ width: `${((generationStep + 1) / generationSteps.length) * 100}%` }} />
-                  </div>
-                </div>
-              )}
-
-              <div className="overflow-x-auto -mx-6 sm:-mx-7 px-3 sm:px-4">
+          {filtered.length === 0 ? (
+            <EmptyState icon={DocumentTextIcon} message="해당하는 전표가 없습니다." />
+          ) : (
+            <div>
+              <div className="overflow-x-auto -mx-6 sm:-mx-7 px-3 sm:px-4 mb-2">
                 <table className="min-w-full">
                   <thead>
                     <tr>
+                      <th className="table-head w-8 px-1">
+                        <span className="sr-only">선택</span>
+                      </th>
                       <th className="table-head">전표일</th>
-                      <th className="table-head">전표 번호</th>
+                      <th className="table-head">가맹점</th>
                       <AutoColumnsPill labels={['계정과목', '부서']} />
                       <th className="table-head">결제 금액</th>
                       <th className="table-head">상태</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {invoices.map((invoice) => {
-                      const selected = selectedInvoice?.id === invoice.id;
+                    {visible.map((invoice) => {
+                      const isSelected = selected?.id === invoice.id;
                       return (
                         <tr
                           key={invoice.id}
-                          onClick={() => setSelectedInvoice(invoice)}
+                          onClick={() => select(invoice.id)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              setSelectedInvoice(invoice);
-                            }
+                            if (e.key === 'Enter') select(invoice.id);
                           }}
                           tabIndex={0}
-                          aria-selected={selected}
+                          aria-selected={isSelected}
                           className={`cursor-pointer transition-colors outline-none focus-visible:bg-flow-50 ${
-                            selected ? 'bg-flow-50' : 'hover:bg-gray-50'
+                            isSelected ? 'bg-flow-50' : 'hover:bg-gray-50'
                           }`}
                         >
-                          <td className="table-cell tabular-nums text-gray-500">{invoice.date.replace(/-/g, '.')}</td>
-                          <td className={`table-cell font-medium ${selected ? 'text-flow-700' : 'text-gray-900'}`}>{invoice.id}</td>
-                          <td className="table-cell w-28">{invoice.category}</td>
-                          <td className="table-cell w-28">{invoice.department}</td>
-                          <td className="table-cell font-semibold text-gray-900 tabular-nums">{invoice.amount.toLocaleString()}</td>
-                          <td className="table-cell"><StatusTag status={invoice.approvalStatus} /></td>
+                          <td className="table-cell w-8 px-1" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              aria-label={`${invoice.id} 선택`}
+                              className="rounded text-flow-500 focus:ring-flow-500"
+                              checked={checked.has(invoice.id)}
+                              onChange={() => toggleCheck(invoice.id)}
+                            />
+                          </td>
+                          <td className="table-cell tabular-nums text-gray-500">{formatDate(invoice.date).replace(/-/g, '.')}</td>
+                          <td className="table-cell text-left">
+                            <p className={`font-medium truncate max-w-40 ${isSelected ? 'text-flow-700' : 'text-gray-900'}`}>{invoice.merchant}</p>
+                            <p className="text-xs text-gray-400">{invoice.id}</p>
+                          </td>
+                          <td className="table-cell w-24">{categoryById(invoice.categoryId).account}</td>
+                          <td className="table-cell w-24">{departmentName(state, invoice.departmentId)}</td>
+                          <td className="table-cell font-semibold text-gray-900 tabular-nums">{invoice.amount.toLocaleString('ko-KR')}</td>
+                          <td className="table-cell">
+                            <div className="flex flex-col items-center gap-1">
+                              <StatusTag status={invoice.approvalStatus} />
+                              {invoice.approvalStatus === 'approved' && <TaxTag status={invoice.taxStatus} />}
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
               </div>
-            </div>
-          </div>
-
-          {/* 전표 상세 */}
-          <div className="card">
-            <h2 className="card-title mb-5">전표 상세</h2>
-            <AnimatePresence mode="wait">
-              {!selectedInvoice ? (
-                <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16">
-                  <div className="w-16 h-16 rounded-2xl bg-flow-50 flex items-center justify-center mx-auto mb-4">
-                    <DocumentMagnifyingGlassIcon className="h-8 w-8 text-flow-500" />
-                  </div>
-                  <p className="text-sm text-gray-400">전표를 선택하면 상세 정보를 확인할 수 있습니다.</p>
-                </motion.div>
-              ) : (
-                <motion.div key={selectedInvoice.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                  <div className="flex items-end justify-between pb-4 border-b border-gray-100">
-                    <div className="min-w-0">
-                      <p className="text-xs text-gray-400 mb-1">{selectedInvoice.id}</p>
-                      <p className="font-semibold text-gray-900 truncate">{selectedInvoice.merchant}</p>
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900 tabular-nums whitespace-nowrap ml-3">
-                      {selectedInvoice.amount.toLocaleString()} <span className="text-base">원</span>
-                    </p>
-                  </div>
-
-                  <div className="card-muted p-4">
-                    <h3 className="text-xs font-semibold text-gray-400 mb-3">기본 정보</h3>
-                    <div className="space-y-2 text-sm">
-                      <DetailRow label="Flow ID" value={selectedInvoice.flowId} mono />
-                      <DetailRow label="전표일" value={selectedInvoice.date} />
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl bg-flow-50 p-4">
-                    <h3 className="text-xs font-semibold text-flow-700 mb-3">자동 분류</h3>
-                    <div className="space-y-2 text-sm">
-                      <DetailRow label="계정과목" value={selectedInvoice.category} />
-                      <DetailRow label="부서" value={selectedInvoice.department} />
-                    </div>
-                  </div>
-
-                  <div className="card-muted p-4">
-                    <h3 className="text-xs font-semibold text-gray-400 mb-3">상품 내역</h3>
-                    <div className="space-y-2">
-                      {selectedInvoice.items.map((item, index) => (
-                        <div key={index} className="flex justify-between items-center bg-white rounded-xl px-3 py-2.5">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{item.name}</p>
-                            <p className="text-xs text-gray-400">수량 {item.quantity}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-semibold text-gray-900 tabular-nums">{item.total.toLocaleString()} 원</p>
-                            <p className="text-xs text-gray-400 tabular-nums">단가 {item.price.toLocaleString()} 원</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="card-muted p-4">
-                    <h3 className="text-xs font-semibold text-gray-400 mb-3">승인 상태</h3>
-                    <div className="space-y-2.5 text-sm">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-500">상태</span>
-                        <StatusTag status={selectedInvoice.approvalStatus} />
-                      </div>
-                      {selectedInvoice.approver && <DetailRow label="승인자" value={selectedInvoice.approver} />}
-                      {selectedInvoice.approvalDate && <DetailRow label="승인일" value={selectedInvoice.approvalDate} />}
-                      {selectedInvoice.notes && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">비고</span>
-                          <span className="font-medium text-error-600">{selectedInvoice.notes}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 pt-1">
-                    {selectedInvoice.approvalStatus === 'pending' && (
-                      <div className="flex gap-2">
-                        <button onClick={() => approveInvoice(selectedInvoice.id, true)} className="btn-success flex-1 text-sm">
-                          승인
-                        </button>
-                        <button onClick={() => approveInvoice(selectedInvoice.id, false)} className="btn-error flex-1 text-sm">
-                          거부
-                        </button>
-                      </div>
-                    )}
-                    <div className="flex gap-2">
-                      <button onClick={() => downloadInvoice(selectedInvoice)} className="btn-secondary flex-1 text-sm px-3">
-                        <ArrowDownTrayIcon className="h-4 w-4 mr-1.5" /> 다운로드
-                      </button>
-                      <button className="btn-secondary flex-1 text-sm px-3">
-                        <PrinterIcon className="h-4 w-4 mr-1.5" /> 미리보기
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
+              {filtered.length > limit && (
+                <button onClick={() => setLimit((l) => l + PAGE_SIZE)} className="btn-secondary w-full text-sm">
+                  더 보기 ({filtered.length - limit}건 남음)
+                </button>
               )}
-            </AnimatePresence>
+            </div>
+          )}
+        </div>
+
+        {/* 전표 상세 */}
+        <div ref={detailRef} className="lg:col-span-2 card lg:sticky lg:top-6 lg:self-start scroll-mt-4">
+          <h2 className="card-title mb-5">전표 상세</h2>
+          <AnimatePresence mode="wait">
+            {!selected ? (
+              <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <EmptyState icon={DocumentMagnifyingGlassIcon} message="전표를 선택하면 상세 정보를 확인할 수 있습니다." />
+              </motion.div>
+            ) : (
+              <motion.div key={selected.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <InvoiceDetail invoice={selected} onPreview={() => setShowPreview(true)} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      <CreateInvoiceModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreate={(ids) => {
+          const created = createInvoices(ids);
+          if (created.length) {
+            toast(`전표 ${created.length}건을 생성했습니다`);
+            setTab('pending');
+            setParams({ id: created[0].id }, { replace: true });
+          }
+          setShowCreate(false);
+        }}
+      />
+
+      {selected && (
+        <Modal
+          open={showPreview}
+          onClose={() => setShowPreview(false)}
+          title="전표 미리보기"
+          size="lg"
+          footer={
+            <>
+              <button onClick={() => setShowPreview(false)} className="btn-secondary flex-1 text-sm">
+                닫기
+              </button>
+              <button onClick={() => window.print()} className="btn-primary flex-1 text-sm">
+                <PrinterIcon className="h-4 w-4 mr-1.5" /> 인쇄 · PDF 저장
+              </button>
+            </>
+          }
+        >
+          <PrintableInvoice invoice={selected} />
+        </Modal>
+      )}
+    </Page>
+  );
+};
+
+const InvoiceDetail: React.FC<{ invoice: Invoice; onPreview: () => void }> = ({ invoice, onPreview }) => {
+  const { state, setApproval, submitTax } = useFlowPay();
+  const toast = useToast();
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState('');
+  const tx = state.transactions.find((t) => t.id === invoice.transactionId);
+  const category = categoryById(invoice.categoryId);
+  const hasEvidence = !!tx?.receiptId || tx?.method === 'flowpay';
+
+  useEffect(() => {
+    setRejecting(false);
+    setReason('');
+  }, [invoice.id]);
+
+  const download = () => {
+    const content = [
+      'FlowPay 전표',
+      '',
+      `전표번호: ${invoice.id}`,
+      `거래번호: ${invoice.transactionId}`,
+      `Flow ID: ${invoice.flowId}`,
+      `가맹점: ${invoice.merchant}`,
+      `거래일시: ${formatDateTime(invoice.date)}`,
+      `부서: ${departmentName(state, invoice.departmentId)}`,
+      `계정과목: ${category.account} (${category.accountCode})`,
+      `프로젝트: ${projectName(state, invoice.projectId)}`,
+      '',
+      `공급가액: ${won(invoice.supplyAmount)}`,
+      `부가세: ${won(invoice.vat)}`,
+      `합계: ${won(invoice.amount)}`,
+      '',
+      '품목:',
+      ...invoice.items.map((it) => `  ${it.name} x${it.quantity} - ${won(it.price * it.quantity)}`),
+      '',
+      `승인자: ${invoice.approver}`,
+      `결재 상태: ${approvalLabel(invoice.approvalStatus)}`,
+      invoice.approvalDate ? `결재일: ${formatDate(invoice.approvalDate)}` : '',
+      invoice.rejectReason ? `반려 사유: ${invoice.rejectReason}` : '',
+      `국세청: ${taxLabel(invoice.taxStatus)}${invoice.ntsReference ? ` (${invoice.ntsReference})` : ''}`,
+    ]
+      .filter((l) => l !== undefined)
+      .join('\n');
+    downloadFile(`${invoice.id}.txt`, content, 'text/plain;charset=utf-8');
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-end justify-between pb-4 border-b border-gray-100 gap-3">
+        <div className="min-w-0">
+          <p className="text-xs text-gray-400 mb-1">{invoice.id}</p>
+          <p className="font-semibold text-gray-900 truncate">{invoice.merchant}</p>
+        </div>
+        <p className="text-2xl font-bold text-gray-900 tabular-nums whitespace-nowrap">{won(invoice.amount)}</p>
+      </div>
+
+      <div className="card-muted p-4">
+        <h3 className="text-xs font-semibold text-gray-400 mb-3">기본 정보</h3>
+        <div className="space-y-2 text-sm">
+          <Row label="전표번호" value={invoice.id} />
+          <Row
+            label="거래"
+            value={
+              <Link to={`/transactions?id=${invoice.transactionId}`} className="text-flow-700 underline underline-offset-2">
+                {invoice.transactionId}
+              </Link>
+            }
+          />
+          <Row label="Flow ID" value={invoice.flowId} mono />
+          <Row label="가맹점" value={invoice.merchant} />
+          <Row label="거래일시" value={formatDateTime(invoice.date)} />
+          {tx && <Row label="결제 수단" value={METHOD_LABELS[tx.method]} />}
+          {tx?.authorization && (
+            <Row
+              label="결제 인증"
+              value={`${authorizationLabel(tx.authorization)}${tx.authorization.approvalId ? ` · ${tx.authorization.approvalId}` : ''}`}
+              tone={tx.authorization.method === 'demo' ? 'muted' : 'default'}
+            />
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-flow-50 p-4">
+        <h3 className="text-xs font-semibold text-flow-700 mb-3">회계 처리 · 자동 분류</h3>
+        <div className="space-y-2 text-sm">
+          <Row label="부서" value={departmentName(state, invoice.departmentId)} />
+          <Row label="계정과목" value={`${category.account} (${category.accountCode})`} />
+          <Row label="프로젝트" value={projectName(state, invoice.projectId)} />
+          <div className="border-t border-flow-200 my-1" />
+          <Row label="공급가액" value={won(invoice.supplyAmount)} />
+          <Row label="부가세" value={won(invoice.vat)} />
+          <Row label="합계" value={won(invoice.amount)} bold />
+          <Row
+            label="증빙"
+            value={hasEvidence ? (tx?.receiptId ? `영수증 ${tx.receiptId}` : 'PG 전자영수증') : '미첨부'}
+            tone={hasEvidence ? 'default' : 'error'}
+          />
+        </div>
+        {!hasEvidence && tx && (
+          <Link to={`/receipt?tx=${tx.id}`} className="block text-xs text-flow-700 font-semibold mt-2 text-right">
+            영수증 첨부하기
+          </Link>
+        )}
+      </div>
+
+      <div className="card-muted p-4">
+        <h3 className="text-xs font-semibold text-gray-400 mb-3">품목</h3>
+        <div className="space-y-2">
+          {invoice.items.map((item, index) => (
+            <div key={index} className="flex justify-between items-center bg-white rounded-xl px-3 py-2.5 gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                <p className="text-xs text-gray-400">
+                  {won(item.price)} × {item.quantity}
+                </p>
+              </div>
+              <p className="text-sm font-semibold text-gray-900 tabular-nums">{won(item.price * item.quantity)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card-muted p-4">
+        <h3 className="text-xs font-semibold text-gray-400 mb-3">결재 · 세무</h3>
+        <div className="space-y-2.5 text-sm">
+          <Row label="승인자" value={`${invoice.approver} (${departmentName(state, invoice.departmentId)})`} />
+          <div className="flex justify-between items-center">
+            <span className="text-gray-500">결재 상태</span>
+            <StatusTag status={invoice.approvalStatus} />
           </div>
+          {invoice.approvalDate && <Row label="결재일" value={formatDate(invoice.approvalDate)} />}
+          {invoice.rejectReason && <Row label="반려 사유" value={invoice.rejectReason} tone="error" />}
+          <div className="flex justify-between items-center">
+            <span className="text-gray-500">국세청</span>
+            <TaxTag status={invoice.taxStatus} />
+          </div>
+          {invoice.ntsReference && <Row label="접수번호" value={invoice.ntsReference} />}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {invoice.approvalStatus === 'pending' &&
+          (rejecting ? (
+            <div className="space-y-2">
+              <textarea
+                className="input-field text-sm"
+                rows={2}
+                placeholder="반려 사유를 입력하세요 (필수)"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button onClick={() => setRejecting(false)} className="btn-secondary flex-1 text-sm">
+                  취소
+                </button>
+                <button
+                  disabled={!reason.trim()}
+                  onClick={() => {
+                    setApproval([invoice.id], 'rejected', reason.trim());
+                    toast(`${invoice.id} 전표를 반려했습니다`, 'info');
+                  }}
+                  className="btn-error flex-1 text-sm disabled:opacity-40"
+                >
+                  반려 확정
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setApproval([invoice.id], 'approved');
+                  toast(`${invoice.id} 전표를 승인했습니다`);
+                }}
+                className="btn-success flex-1 text-sm"
+              >
+                승인
+              </button>
+              <button onClick={() => setRejecting(true)} className="btn-error flex-1 text-sm">
+                반려
+              </button>
+            </div>
+          ))}
+        {invoice.approvalStatus === 'approved' && invoice.taxStatus === 'not_submitted' && (
+          <button
+            onClick={() => {
+              submitTax([invoice.id]);
+              toast('국세청(홈택스)으로 전송합니다', 'info');
+            }}
+            className="btn-accent w-full text-sm"
+          >
+            <PaperAirplaneIcon className="h-4 w-4 mr-1.5" /> 국세청 전송
+          </button>
+        )}
+        <div className="flex gap-2">
+          <button onClick={download} className="btn-secondary flex-1 text-sm">
+            <ArrowDownTrayIcon className="h-4 w-4 mr-1.5" /> 다운로드
+          </button>
+          <button onClick={onPreview} className="btn-secondary flex-1 text-sm">
+            <PrinterIcon className="h-4 w-4 mr-1.5" /> 미리보기
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
-const DetailRow: React.FC<{ label: string; value: string; bold?: boolean; mono?: boolean }> = ({ label, value, bold, mono }) => (
-  <div className="flex justify-between">
-    <span className="text-gray-500">{label}</span>
-    <span className={`${bold ? 'font-semibold' : 'font-medium'} ${mono ? 'tracking-wide text-flow-700' : 'text-gray-900'}`}>{value}</span>
-  </div>
-);
+/** 인쇄용 지출결의서 양식 */
+const PrintableInvoice: React.FC<{ invoice: Invoice }> = ({ invoice }) => {
+  const { state } = useFlowPay();
+  const category = categoryById(invoice.categoryId);
+  const cell = 'border border-gray-300 px-3 py-2 text-sm';
+  return (
+    <div className="print-area text-gray-900">
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">지출결의서</h1>
+          <p className="text-sm text-gray-500 mt-1">{invoice.id}</p>
+        </div>
+        <table className="border-collapse text-center">
+          <tbody>
+            <tr>
+              <th className={`${cell} bg-gray-50 font-medium`}>작성</th>
+              <th className={`${cell} bg-gray-50 font-medium`}>승인</th>
+            </tr>
+            <tr>
+              <td className={`${cell} font-mono h-12`}>{invoice.flowId}</td>
+              <td className={`${cell} h-12`}>
+                {invoice.approver}
+                <div className="text-xs text-gray-400">{approvalLabel(invoice.approvalStatus)}</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <table className="w-full border-collapse mb-6">
+        <tbody>
+          {[
+            ['부서', departmentName(state, invoice.departmentId), '거래일', formatDate(invoice.date)],
+            ['계정과목', `${category.account} (${category.accountCode})`, '프로젝트', projectName(state, invoice.projectId)],
+            ['거래처', invoice.merchant, '거래번호', invoice.transactionId],
+          ].map(([a, b, c, d]) => (
+            <tr key={a}>
+              <th className={`${cell} bg-gray-50 font-medium w-24 text-left`}>{a}</th>
+              <td className={cell}>{b}</td>
+              <th className={`${cell} bg-gray-50 font-medium w-24 text-left`}>{c}</th>
+              <td className={cell}>{d}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <table className="w-full border-collapse mb-6">
+        <thead>
+          <tr className="bg-gray-50">
+            <th className={`${cell} font-medium text-left`}>품목</th>
+            <th className={`${cell} font-medium text-right w-16`}>수량</th>
+            <th className={`${cell} font-medium text-right w-28`}>단가</th>
+            <th className={`${cell} font-medium text-right w-28`}>금액</th>
+          </tr>
+        </thead>
+        <tbody>
+          {invoice.items.map((it, i) => (
+            <tr key={i}>
+              <td className={cell}>{it.name}</td>
+              <td className={`${cell} text-right`}>{it.quantity}</td>
+              <td className={`${cell} text-right`}>{won(it.price)}</td>
+              <td className={`${cell} text-right`}>{won(it.price * it.quantity)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td className={`${cell} text-right`} colSpan={3}>공급가액</td>
+            <td className={`${cell} text-right`}>{won(invoice.supplyAmount)}</td>
+          </tr>
+          <tr>
+            <td className={`${cell} text-right`} colSpan={3}>부가세</td>
+            <td className={`${cell} text-right`}>{won(invoice.vat)}</td>
+          </tr>
+          <tr className="bg-gray-50">
+            <td className={`${cell} text-right font-semibold`} colSpan={3}>합계</td>
+            <td className={`${cell} text-right font-semibold`}>{won(invoice.amount)}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <p className="text-xs text-gray-400">
+        본 전표는 FlowPay가 Flow ID 기반으로 자동 생성했습니다. 작성자는 개인정보 대신 익명 토큰으로 표시됩니다. ·{' '}
+        세무 처리: {taxLabel(invoice.taxStatus)}
+        {invoice.ntsReference ? ` (${invoice.ntsReference})` : ''}
+      </p>
+    </div>
+  );
+};
+
+const CreateInvoiceModal: React.FC<{ open: boolean; onClose: () => void; onCreate: (ids: string[]) => void }> = ({
+  open,
+  onClose,
+  onCreate,
+}) => {
+  const { state } = useFlowPay();
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [step, setStep] = useState<number | null>(null);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const candidates = useMemo(
+    () => state.transactions.filter((t) => t.status === 'completed' && !t.invoiceId).slice(0, 50),
+    [state.transactions]
+  );
+
+  useEffect(() => {
+    if (!open) {
+      timers.current.forEach(clearTimeout);
+      timers.current = [];
+      setPicked(new Set());
+      setStep(null);
+    }
+  }, [open]);
+
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+  const run = () => {
+    const ids = Array.from(picked);
+    setStep(0);
+    generationSteps.forEach((_, i) => timers.current.push(setTimeout(() => setStep(i), i * 400)));
+    timers.current.push(setTimeout(() => onCreate(ids), generationSteps.length * 400));
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="새 전표 생성"
+      footer={
+        step === null ? (
+          <>
+            <button onClick={onClose} className="btn-secondary flex-1 text-sm">
+              취소
+            </button>
+            <button onClick={run} disabled={!picked.size} className="btn-primary flex-1 text-sm disabled:opacity-40">
+              {picked.size ? `${picked.size}건 생성` : '거래를 선택하세요'}
+            </button>
+          </>
+        ) : undefined
+      }
+    >
+      {step !== null ? (
+        <div className="py-6">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="w-6 h-6 rounded-full bg-flow-500 text-white text-xs font-bold flex items-center justify-center">{step + 1}</span>
+            <span className="text-sm font-semibold text-gray-900">{generationSteps[step]}…</span>
+          </div>
+          <div className="progress-bar">
+            <div className="progress-fill" style={{ width: `${((step + 1) / generationSteps.length) * 100}%` }} />
+          </div>
+        </div>
+      ) : candidates.length === 0 ? (
+        <EmptyState icon={DocumentTextIcon} message="전표가 없는 거래가 없습니다. 모든 거래가 처리되었습니다." />
+      ) : (
+        <>
+          <p className="text-sm text-gray-500 mb-4">전표가 아직 없는 거래입니다. 승인자는 부서별로 자동 배정됩니다.</p>
+          <label className="flex items-center gap-2 text-sm text-gray-500 mb-2 cursor-pointer">
+            <input
+              type="checkbox"
+              className="rounded text-flow-500 focus:ring-flow-500"
+              checked={picked.size === candidates.length}
+              onChange={() => setPicked(picked.size === candidates.length ? new Set() : new Set(candidates.map((t) => t.id)))}
+            />
+            전체 선택 ({candidates.length})
+          </label>
+          <div className="space-y-1.5">
+            {candidates.map((t) => {
+              const noEvidence = !t.receiptId && t.method !== 'flowpay';
+              return (
+                <label key={t.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-gray-50 cursor-pointer hover:bg-gray-100">
+                  <input
+                    type="checkbox"
+                    className="rounded text-flow-500 focus:ring-flow-500"
+                    checked={picked.has(t.id)}
+                    onChange={() =>
+                      setPicked((prev) => {
+                        const next = new Set(prev);
+                        next.has(t.id) ? next.delete(t.id) : next.add(t.id);
+                        return next;
+                      })
+                    }
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{t.merchant}</p>
+                    <p className="text-xs text-gray-400">
+                      {formatDate(t.date)} · {departmentName(state, t.departmentId)} · {categoryById(t.categoryId).account}
+                      {noEvidence && <span className="text-warning-700"> · 증빙 미첨부</span>}
+                    </p>
+                  </div>
+                  <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{won(t.amount)}</span>
+                </label>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+};
 
 export default InvoiceGenerator;
