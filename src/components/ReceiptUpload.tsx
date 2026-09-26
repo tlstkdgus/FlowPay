@@ -14,7 +14,7 @@ import {
   SparklesIcon,
 } from '@heroicons/react/24/outline';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Field, Page, PageHeader, Row, fade, useToast } from './ui';
+import { Field, Highlight, Page, PageHeader, Row, fade, useToast } from './ui';
 import { useFlowPay } from '../store/FlowPayContext';
 import { myTransactions, needsReceipt, receiptCandidates } from '../store/selectors';
 import { CATEGORIES } from '../data/constants';
@@ -302,7 +302,12 @@ const ReceiptUpload: React.FC = () => {
   return (
     <Page>
       <PageHeader
-        title="영수증 처리"
+        eyebrow="Receipt"
+        title={
+          <>
+            <Highlight>AI 영수증</Highlight> 자동 수집
+          </>
+        }
         description="영수증을 촬영하거나 업로드하면 텍스트를 추출해 거래와 자동으로 연결하고 분류합니다."
       />
 
@@ -324,17 +329,22 @@ const ReceiptUpload: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* 업로드 영역 */}
         <motion.div {...fade} className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">영수증 업로드</h2>
+          <h2 className="card-title mb-6">영수증 업로드</h2>
 
           {!image && !draft ? (
             <div className="space-y-3">
-              <button onClick={() => setShowCamera(true)} className="w-full card-muted p-8 text-center hover:bg-gray-200/70 transition-colors">
-                <CameraIcon className="h-10 w-10 text-gray-900 mx-auto mb-3" />
-                <h3 className="font-medium text-gray-900 mb-1">카메라로 촬영</h3>
+              <button
+                onClick={() => setShowCamera(true)}
+                className="w-full rounded-2xl bg-flow-50 border-2 border-flow-200 p-8 text-center hover:border-flow-400 transition-colors"
+              >
+                <span className="w-14 h-14 rounded-2xl bg-flow-500 text-white flex items-center justify-center mx-auto mb-3 shadow-mint">
+                  <CameraIcon className="h-7 w-7" />
+                </span>
+                <h3 className="font-bold text-gray-900 mb-1">카메라로 촬영</h3>
                 <p className="text-sm text-gray-500">영수증을 촬영하여 즉시 처리</p>
               </button>
 
-              <div className="border border-dashed border-gray-300 rounded-4xl p-8 text-center">
+              <div className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center">
                 <CloudArrowUpIcon className="h-10 w-10 text-gray-400 mx-auto mb-3" />
                 <p className="text-sm text-gray-500 mb-4">또는 이미지 파일을 업로드하세요</p>
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
@@ -360,13 +370,13 @@ const ReceiptUpload: React.FC = () => {
               )}
 
               {ocr && (
-                <div className="card-muted p-4">
+                <div className="rounded-2xl bg-flow-50 p-4">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-900 border-t-transparent" />
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-flow-500 border-t-transparent" />
                     <span className="text-sm font-medium text-gray-900">{ocr.status}…</span>
                     <span className="ml-auto text-xs text-gray-400 tabular-nums">{Math.round(ocr.progress * 100)}%</span>
                   </div>
-                  <div className="progress-bar">
+                  <div className="progress-bar bg-white">
                     <div className="progress-fill" style={{ width: `${Math.max(4, ocr.progress * 100)}%` }} />
                   </div>
                 </div>
@@ -396,14 +406,14 @@ const ReceiptUpload: React.FC = () => {
 
         {/* 결과 영역 */}
         <motion.div {...fade} className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">{saved ? '등록 완료' : '추출 결과 확인'}</h2>
+          <h2 className="card-title mb-6">{saved ? '등록 완료' : '추출 결과 확인'}</h2>
 
           <AnimatePresence mode="wait">
             {saved ? (
               <motion.div key="saved" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-                <div className="card-muted p-5">
+                <div className="rounded-2xl bg-flow-50 p-5">
                   <div className="flex items-center gap-2 mb-4">
-                    <CheckCircleIcon className="h-5 w-5 text-success-600" />
+                    <CheckCircleIcon className="h-5 w-5 text-flow-500" />
                     <span className="text-sm font-medium text-gray-900">영수증이 거래에 연결되었습니다</span>
                   </div>
                   <div className="space-y-2.5 text-sm">
@@ -517,7 +527,7 @@ const ReceiptUpload: React.FC = () => {
 
                 {/* 거래 매칭 */}
                 <div className="card-muted p-4">
-                  <h3 className="text-sm font-medium text-gray-900 mb-3">거래 연결</h3>
+                  <h3 className="text-xs font-semibold text-gray-500 mb-3">거래 연결</h3>
                   <div className="space-y-2">
                     {candidates.map((t) => (
                       <label key={t.id} className="flex items-center gap-3 bg-white rounded-xl px-3 py-2.5 cursor-pointer">
@@ -525,7 +535,7 @@ const ReceiptUpload: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">{t.merchant}</p>
                           <p className="text-xs text-gray-400">
-                            {formatDate(t.date)} · <span className="font-mono">{t.flowId}</span>
+                            {formatDate(t.date)} · <span className="tracking-wide font-medium">{t.flowId}</span>
                           </p>
                         </div>
                         <span className="text-sm font-semibold text-gray-900">{won(t.amount)}</span>
@@ -553,7 +563,7 @@ const ReceiptUpload: React.FC = () => {
                 {/* 분류 (새 거래로 등록할 때) */}
                 {!candidates.some((t) => t.id === linkId) && classification && (
                   <div className="card-muted p-4 space-y-2">
-                    <h3 className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+                    <h3 className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
                       {!classOverride && <SparklesIcon className="h-4 w-4 text-flow-600" />}
                       {classOverride ? '분류' : '자동 분류'}
                     </h3>
@@ -604,7 +614,7 @@ const ReceiptUpload: React.FC = () => {
       {/* 영수증 필요 거래 · 최근 영수증 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
         <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">영수증이 필요한 내 거래</h2>
+          <h2 className="card-title mb-1">영수증이 필요한 내 거래</h2>
           <p className="text-sm text-gray-400 mb-5">선택하면 해당 거래에 영수증을 연결합니다.</p>
           {pendingReceipts.length === 0 ? (
             <p className="text-sm text-gray-400 py-6 text-center">모든 거래에 증빙이 첨부되었습니다.</p>
@@ -634,7 +644,7 @@ const ReceiptUpload: React.FC = () => {
         </div>
 
         <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-5">최근 등록 영수증</h2>
+          <h2 className="card-title mb-5">최근 등록 영수증</h2>
           <div className="space-y-1">
             {state.receipts.slice(0, 6).map((r) => (
               <button
@@ -645,7 +655,7 @@ const ReceiptUpload: React.FC = () => {
                 {r.thumbnail ? (
                   <img src={r.thumbnail} alt="" className="w-10 h-10 rounded-lg object-cover border border-gray-200" />
                 ) : (
-                  <div className="icon-container icon-container-muted w-10 h-10">
+                  <div className="icon-container icon-container-accent w-10 h-10">
                     <DocumentMagnifyingGlassIcon className="h-5 w-5" />
                   </div>
                 )}
@@ -676,10 +686,10 @@ const ReceiptUpload: React.FC = () => {
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="bg-white rounded-4xl p-6 max-w-md w-full"
+              className="bg-white rounded-3xl p-6 max-w-md w-full"
             >
               <div className="text-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">카메라 촬영</h3>
+                <h3 className="card-title mb-1">카메라 촬영</h3>
                 <p className="text-sm text-gray-500">영수증을 가이드 안에 맞춰 촬영해주세요</p>
               </div>
               <div className="relative mb-4">

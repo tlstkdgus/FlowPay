@@ -16,7 +16,22 @@ import { departmentName, projectName } from '../store/selectors';
 import { categoryById, METHOD_LABELS } from '../data/constants';
 import { formatDate, formatDateTime, won } from '../utils/format';
 import { downloadFile, toCsv } from '../utils/csv';
-import { EmptyState, Modal, Page, PageHeader, Row, Segmented, StatusTag, TaxTag, approvalLabel, fade, taxLabel, useToast } from './ui';
+import {
+  AutoColumnsPill,
+  EmptyState,
+  Highlight,
+  Modal,
+  Page,
+  PageHeader,
+  Row,
+  Segmented,
+  StatusTag,
+  TaxTag,
+  approvalLabel,
+  fade,
+  taxLabel,
+  useToast,
+} from './ui';
 import { authorizationLabel } from '../utils/passkey';
 import { Invoice } from '../types';
 
@@ -125,7 +140,12 @@ const InvoiceGenerator: React.FC = () => {
   return (
     <Page>
       <PageHeader
-        title="전표"
+        eyebrow="Invoice"
+        title={
+          <>
+            증빙·전표 처리를 <Highlight>자동화</Highlight>합니다
+          </>
+        }
         description="Flow ID 기반으로 생성된 전표를 결재하고, 승인된 전표를 국세청(홈택스)으로 전송합니다."
         actions={
           <>
@@ -142,14 +162,24 @@ const InvoiceGenerator: React.FC = () => {
       {/* 요약 */}
       <motion.div {...fade} className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
         {[
-          { id: 'pending' as Tab, label: '승인 대기', value: counts.pending },
-          { id: 'approved' as Tab, label: '승인 완료', value: counts.approved },
-          { id: 'unfiled' as Tab, label: '국세청 미전송', value: counts.unfiled },
-          { id: 'rejected' as Tab, label: '반려', value: counts.rejected },
+          { id: 'pending' as Tab, label: '승인 대기', value: counts.pending, dot: 'bg-warning-500' },
+          { id: 'approved' as Tab, label: '승인 완료', value: counts.approved, dot: 'bg-flow-500' },
+          { id: 'unfiled' as Tab, label: '국세청 미전송', value: counts.unfiled, dot: 'bg-sky-500' },
+          { id: 'rejected' as Tab, label: '반려', value: counts.rejected, dot: 'bg-error-500' },
         ].map((s) => (
-          <button key={s.id} onClick={() => setTab(s.id)} className={`card p-5 text-left card-hover ${tab === s.id ? 'ring-1 ring-flow-500 border-flow-500' : ''}`}>
-            <p className="text-2xl font-semibold text-gray-900 tabular-nums">{s.value}</p>
-            <p className="text-sm text-gray-500 mt-1">{s.label}</p>
+          <button
+            key={s.id}
+            onClick={() => setTab(s.id)}
+            aria-pressed={tab === s.id}
+            className={`card p-4 sm:p-5 text-left card-hover ${tab === s.id ? 'border-2 border-flow-500 bg-flow-50' : ''}`}
+          >
+            <p className="flex items-center gap-1.5 text-sm font-medium text-gray-600">
+              <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+              {s.label}
+            </p>
+            <p className="text-2xl font-bold text-gray-900 tabular-nums mt-2">
+              {s.value} <span className="text-base font-semibold text-gray-400">건</span>
+            </p>
           </button>
         ))}
       </motion.div>
@@ -178,7 +208,7 @@ const InvoiceGenerator: React.FC = () => {
             <label className="flex items-center gap-2 text-sm text-gray-500 mr-auto cursor-pointer">
               <input
                 type="checkbox"
-                className="rounded text-flow-600 focus:ring-flow-500"
+                className="rounded text-flow-500 focus:ring-flow-500"
                 checked={allChecked}
                 onChange={() => setChecked(allChecked ? new Set() : new Set(visible.map((i) => i.id)))}
               />
@@ -199,47 +229,66 @@ const InvoiceGenerator: React.FC = () => {
           {filtered.length === 0 ? (
             <EmptyState icon={DocumentTextIcon} message="해당하는 전표가 없습니다." />
           ) : (
-            <div className="space-y-2">
-              {visible.map((invoice) => (
-                <div
-                  key={invoice.id}
-                  className={`flex items-start gap-3 p-4 rounded-2xl border transition-all ${
-                    selected?.id === invoice.id ? 'border-flow-500 bg-flow-50/40 ring-1 ring-flow-500' : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    aria-label={`${invoice.id} 선택`}
-                    className="mt-1 rounded text-flow-600 focus:ring-flow-500"
-                    checked={checked.has(invoice.id)}
-                    onChange={() => toggleCheck(invoice.id)}
-                  />
-                  <button onClick={() => select(invoice.id)} className="flex-1 min-w-0 text-left">
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="min-w-0">
-                        <h3 className="font-medium text-gray-900 truncate">{invoice.merchant}</h3>
-                        <p className="text-xs text-gray-400 truncate">
-                          {invoice.id} · {categoryById(invoice.categoryId).account}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="font-semibold text-gray-900">{won(invoice.amount)}</p>
-                        <p className="text-xs text-gray-400 font-mono">{invoice.flowId}</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-3 text-xs text-gray-400">
-                        <span>{formatDate(invoice.date)}</span>
-                        <span>{departmentName(state, invoice.departmentId)}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {invoice.approvalStatus === 'approved' && <TaxTag status={invoice.taxStatus} />}
-                        <StatusTag status={invoice.approvalStatus} />
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              ))}
+            <div>
+              <div className="overflow-x-auto -mx-6 sm:-mx-7 px-3 sm:px-4 mb-2">
+                <table className="min-w-full">
+                  <thead>
+                    <tr>
+                      <th className="table-head w-8 px-1">
+                        <span className="sr-only">선택</span>
+                      </th>
+                      <th className="table-head">전표일</th>
+                      <th className="table-head">가맹점</th>
+                      <AutoColumnsPill labels={['계정과목', '부서']} />
+                      <th className="table-head">결제 금액</th>
+                      <th className="table-head">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visible.map((invoice) => {
+                      const isSelected = selected?.id === invoice.id;
+                      return (
+                        <tr
+                          key={invoice.id}
+                          onClick={() => select(invoice.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') select(invoice.id);
+                          }}
+                          tabIndex={0}
+                          aria-selected={isSelected}
+                          className={`cursor-pointer transition-colors outline-none focus-visible:bg-flow-50 ${
+                            isSelected ? 'bg-flow-50' : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <td className="table-cell w-8 px-1" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              aria-label={`${invoice.id} 선택`}
+                              className="rounded text-flow-500 focus:ring-flow-500"
+                              checked={checked.has(invoice.id)}
+                              onChange={() => toggleCheck(invoice.id)}
+                            />
+                          </td>
+                          <td className="table-cell tabular-nums text-gray-500">{formatDate(invoice.date).replace(/-/g, '.')}</td>
+                          <td className="table-cell text-left">
+                            <p className={`font-medium truncate max-w-40 ${isSelected ? 'text-flow-700' : 'text-gray-900'}`}>{invoice.merchant}</p>
+                            <p className="text-xs text-gray-400">{invoice.id}</p>
+                          </td>
+                          <td className="table-cell w-24">{categoryById(invoice.categoryId).account}</td>
+                          <td className="table-cell w-24">{departmentName(state, invoice.departmentId)}</td>
+                          <td className="table-cell font-semibold text-gray-900 tabular-nums">{invoice.amount.toLocaleString('ko-KR')}</td>
+                          <td className="table-cell">
+                            <div className="flex flex-col items-center gap-1">
+                              <StatusTag status={invoice.approvalStatus} />
+                              {invoice.approvalStatus === 'approved' && <TaxTag status={invoice.taxStatus} />}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
               {filtered.length > limit && (
                 <button onClick={() => setLimit((l) => l + PAGE_SIZE)} className="btn-secondary w-full text-sm">
                   더 보기 ({filtered.length - limit}건 남음)
@@ -251,7 +300,7 @@ const InvoiceGenerator: React.FC = () => {
 
         {/* 전표 상세 */}
         <div ref={detailRef} className="lg:col-span-2 card lg:sticky lg:top-6 lg:self-start scroll-mt-4">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">전표 상세</h2>
+          <h2 className="card-title mb-5">전표 상세</h2>
           <AnimatePresence mode="wait">
             {!selected ? (
               <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -351,14 +400,22 @@ const InvoiceDetail: React.FC<{ invoice: Invoice; onPreview: () => void }> = ({ 
 
   return (
     <div className="space-y-4">
+      <div className="flex items-end justify-between pb-4 border-b border-gray-100 gap-3">
+        <div className="min-w-0">
+          <p className="text-xs text-gray-400 mb-1">{invoice.id}</p>
+          <p className="font-semibold text-gray-900 truncate">{invoice.merchant}</p>
+        </div>
+        <p className="text-2xl font-bold text-gray-900 tabular-nums whitespace-nowrap">{won(invoice.amount)}</p>
+      </div>
+
       <div className="card-muted p-4">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">기본 정보</h3>
+        <h3 className="text-xs font-semibold text-gray-400 mb-3">기본 정보</h3>
         <div className="space-y-2 text-sm">
           <Row label="전표번호" value={invoice.id} />
           <Row
             label="거래"
             value={
-              <Link to={`/transactions?id=${invoice.transactionId}`} className="text-flow-600">
+              <Link to={`/transactions?id=${invoice.transactionId}`} className="text-flow-700 underline underline-offset-2">
                 {invoice.transactionId}
               </Link>
             }
@@ -377,13 +434,13 @@ const InvoiceDetail: React.FC<{ invoice: Invoice; onPreview: () => void }> = ({ 
         </div>
       </div>
 
-      <div className="card-muted p-4">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">회계 처리</h3>
+      <div className="rounded-2xl bg-flow-50 p-4">
+        <h3 className="text-xs font-semibold text-flow-700 mb-3">회계 처리 · 자동 분류</h3>
         <div className="space-y-2 text-sm">
           <Row label="부서" value={departmentName(state, invoice.departmentId)} />
           <Row label="계정과목" value={`${category.account} (${category.accountCode})`} />
           <Row label="프로젝트" value={projectName(state, invoice.projectId)} />
-          <div className="border-t border-gray-200 my-1" />
+          <div className="border-t border-flow-200 my-1" />
           <Row label="공급가액" value={won(invoice.supplyAmount)} />
           <Row label="부가세" value={won(invoice.vat)} />
           <Row label="합계" value={won(invoice.amount)} bold />
@@ -394,14 +451,14 @@ const InvoiceDetail: React.FC<{ invoice: Invoice; onPreview: () => void }> = ({ 
           />
         </div>
         {!hasEvidence && tx && (
-          <Link to={`/receipt?tx=${tx.id}`} className="block text-xs text-flow-600 font-medium mt-2 text-right">
+          <Link to={`/receipt?tx=${tx.id}`} className="block text-xs text-flow-700 font-semibold mt-2 text-right">
             영수증 첨부하기
           </Link>
         )}
       </div>
 
       <div className="card-muted p-4">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">품목</h3>
+        <h3 className="text-xs font-semibold text-gray-400 mb-3">품목</h3>
         <div className="space-y-2">
           {invoice.items.map((item, index) => (
             <div key={index} className="flex justify-between items-center bg-white rounded-xl px-3 py-2.5 gap-3">
@@ -411,14 +468,14 @@ const InvoiceDetail: React.FC<{ invoice: Invoice; onPreview: () => void }> = ({ 
                   {won(item.price)} × {item.quantity}
                 </p>
               </div>
-              <p className="text-sm font-semibold text-gray-900">{won(item.price * item.quantity)}</p>
+              <p className="text-sm font-semibold text-gray-900 tabular-nums">{won(item.price * item.quantity)}</p>
             </div>
           ))}
         </div>
       </div>
 
       <div className="card-muted p-4">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">결재 · 세무</h3>
+        <h3 className="text-xs font-semibold text-gray-400 mb-3">결재 · 세무</h3>
         <div className="space-y-2.5 text-sm">
           <Row label="승인자" value={`${invoice.approver} (${departmentName(state, invoice.departmentId)})`} />
           <div className="flex justify-between items-center">
@@ -647,8 +704,8 @@ const CreateInvoiceModal: React.FC<{ open: boolean; onClose: () => void; onCreat
       {step !== null ? (
         <div className="py-6">
           <div className="flex items-center gap-3 mb-3">
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-900 border-t-transparent" />
-            <span className="text-sm font-medium text-gray-900">{generationSteps[step]}…</span>
+            <span className="w-6 h-6 rounded-full bg-flow-500 text-white text-xs font-bold flex items-center justify-center">{step + 1}</span>
+            <span className="text-sm font-semibold text-gray-900">{generationSteps[step]}…</span>
           </div>
           <div className="progress-bar">
             <div className="progress-fill" style={{ width: `${((step + 1) / generationSteps.length) * 100}%` }} />
@@ -662,7 +719,7 @@ const CreateInvoiceModal: React.FC<{ open: boolean; onClose: () => void; onCreat
           <label className="flex items-center gap-2 text-sm text-gray-500 mb-2 cursor-pointer">
             <input
               type="checkbox"
-              className="rounded text-flow-600 focus:ring-flow-500"
+              className="rounded text-flow-500 focus:ring-flow-500"
               checked={picked.size === candidates.length}
               onChange={() => setPicked(picked.size === candidates.length ? new Set() : new Set(candidates.map((t) => t.id)))}
             />
@@ -675,7 +732,7 @@ const CreateInvoiceModal: React.FC<{ open: boolean; onClose: () => void; onCreat
                 <label key={t.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-gray-50 cursor-pointer hover:bg-gray-100">
                   <input
                     type="checkbox"
-                    className="rounded text-flow-600 focus:ring-flow-500"
+                    className="rounded text-flow-500 focus:ring-flow-500"
                     checked={picked.has(t.id)}
                     onChange={() =>
                       setPicked((prev) => {
@@ -692,7 +749,7 @@ const CreateInvoiceModal: React.FC<{ open: boolean; onClose: () => void; onCreat
                       {noEvidence && <span className="text-warning-700"> · 증빙 미첨부</span>}
                     </p>
                   </div>
-                  <span className="text-sm font-semibold text-gray-900">{won(t.amount)}</span>
+                  <span className="text-sm font-semibold text-gray-900 tabular-nums whitespace-nowrap">{won(t.amount)}</span>
                 </label>
               );
             })}

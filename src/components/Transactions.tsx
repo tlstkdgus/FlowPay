@@ -91,6 +91,7 @@ const Transactions: React.FC = () => {
   return (
     <Page>
       <PageHeader
+        eyebrow="Transactions"
         title="거래 내역"
         description="Flow ID로 기록된 모든 결제를 검색하고, 분류를 수정하거나 증빙을 연결합니다."
         actions={
@@ -148,7 +149,7 @@ const Transactions: React.FC = () => {
 
       <div className="card">
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">{filtered.length.toLocaleString()}건</h2>
+          <h2 className="card-title">{filtered.length.toLocaleString()}건</h2>
           <span className="text-sm text-gray-500">
             합계 <span className="font-semibold text-gray-900">{won(completedTotal)}</span>
             <span className="text-xs text-gray-400"> (취소 제외)</span>
@@ -184,7 +185,7 @@ const Transactions: React.FC = () => {
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="font-semibold text-gray-900">{won(t.amount)}</p>
-                      <p className="text-xs text-gray-400 font-mono">{t.flowId}</p>
+                      <p className="text-xs text-gray-400 tracking-wide">{t.flowId}</p>
                     </div>
                   </button>
                 </li>
@@ -321,7 +322,7 @@ const TransactionDetail: React.FC<{ transaction?: Transaction; onClose: () => vo
         {/* 분류 */}
         <div className="card-muted p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+            <h3 className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
               {t.autoClassified && <SparklesIcon className="h-4 w-4 text-flow-600" />}
               {t.autoClassified ? '자동 분류' : '분류 (수정됨)'}
             </h3>
@@ -378,7 +379,7 @@ const TransactionDetail: React.FC<{ transaction?: Transaction; onClose: () => vo
         {/* 품목 */}
         {t.items.length > 0 && (
           <div className="card-muted p-4">
-            <h3 className="text-sm font-medium text-gray-900 mb-3">품목</h3>
+            <h3 className="text-xs font-semibold text-gray-500 mb-3">품목</h3>
             <div className="space-y-1.5">
               {t.items.map((it, i) => (
                 <div key={i} className="flex justify-between text-sm gap-3">

@@ -5,13 +5,13 @@ import {
   ChartBarIcon,
   DocumentTextIcon,
   BuildingOfficeIcon,
-  CurrencyDollarIcon,
+  BanknotesIcon,
   ArrowTrendingUpIcon,
-  CheckCircleIcon,
+  CheckBadgeIcon,
   ArrowDownTrayIcon,
   FingerPrintIcon,
   BriefcaseIcon,
-  ExclamationTriangleIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import { useFlowPay } from '../store/FlowPayContext';
 import { completed, inPeriod, myFlowIds, sum } from '../store/selectors';
@@ -28,7 +28,7 @@ import {
   wonShort,
 } from '../utils/format';
 import { downloadFile, toCsv } from '../utils/csv';
-import { Page, PageHeader, Segmented, fade } from './ui';
+import { Page, PageHeader, Segmented, fade, Highlight, StatCard, ChangeCaption, BudgetBars, CategoryChart, AutoColumnsPill } from './ui';
 import { Transaction } from '../types';
 
 type Scope = 'all' | 'mine';
@@ -62,11 +62,12 @@ const Analytics: React.FC = () => {
   const prevAutoRate = prevTxs.length ? (prevTxs.filter((t) => t.autoClassified).length / prevTxs.length) * 100 : 0;
   const months = rangeInMonths(period);
 
+  // 발표자료 대시보드 KPI 순서·아이콘 톤(민트·블루·레드·그레이)을 따른다
   const metrics = [
-    { label: '총 지출', value: won(total), change: pctChange(total, prevTotal), invert: true, icon: CurrencyDollarIcon },
-    { label: '거래 건수', value: `${txs.length}건`, change: pctChange(txs.length, prevTxs.length), icon: DocumentTextIcon },
-    { label: '평균 거래 금액', value: won(avg), change: pctChange(avg, prevAvg), invert: true, icon: ArrowTrendingUpIcon },
-    { label: '자동 분류율', value: `${autoRate.toFixed(0)}%`, change: autoRate - prevAutoRate, points: true, icon: CheckCircleIcon },
+    { label: '총 지출', value: won(total), change: pctChange(total, prevTotal), invert: true, icon: BanknotesIcon, tone: 'mint' as const },
+    { label: '총 거래 건수', value: `${txs.length} 건`, change: pctChange(txs.length, prevTxs.length), icon: DocumentTextIcon, tone: 'sky' as const },
+    { label: '평균 거래 금액', value: won(avg), change: pctChange(avg, prevAvg), invert: true, icon: ArrowTrendingUpIcon, tone: 'rose' as const },
+    { label: '계정과목 자동 분류율', value: `${autoRate.toFixed(0)}%`, change: autoRate - prevAutoRate, points: true, icon: CheckBadgeIcon, tone: 'gray' as const },
   ];
 
   const deptRows = state.departments
@@ -80,7 +81,6 @@ const Analytics: React.FC = () => {
   const categoryRows = CATEGORIES.map((c) => ({ ...c, amount: sum(txs.filter((t) => t.categoryId === c.id)) }))
     .filter((c) => c.amount > 0)
     .sort((a, b) => b.amount - a.amount);
-  const maxCategory = categoryRows[0]?.amount ?? 0;
 
   const projectRows = state.projects
     .filter((p) => departmentId === 'all' || p.departmentId === departmentId)
@@ -142,10 +142,18 @@ const Analytics: React.FC = () => {
   return (
     <Page>
       <PageHeader
-        title="회계 분석"
+        eyebrow="Analytics"
+        title={
+          <>
+            <Highlight>실시간</Highlight> 회계 분석
+          </>
+        }
         description={
-          <span className="flex items-center gap-2 text-sm text-gray-400">
-            <span className="w-1.5 h-1.5 bg-success-500 rounded-full" />
+          <span className="inline-flex items-center gap-2 text-sm">
+            <span className="relative flex w-2 h-2">
+              <span className="absolute inset-0 rounded-full bg-flow-400 animate-ping opacity-60" />
+              <span className="relative w-2 h-2 rounded-full bg-flow-500" />
+            </span>
             결제·영수증 데이터가 즉시 반영됩니다
           </span>
         }
@@ -190,25 +198,23 @@ const Analytics: React.FC = () => {
       {/* 주요 지표 */}
       <motion.div {...fade} className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
         {metrics.map((m) => (
-          <div key={m.label} className="card p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="icon-container icon-container-muted w-10 h-10">
-                <m.icon className="h-5 w-5" />
-              </div>
-              <ChangeBadge value={m.change} invert={m.invert} points={m.points} />
-            </div>
-            <p className="text-xl sm:text-2xl font-semibold text-gray-900 tracking-tight truncate">{m.value}</p>
-            <p className="text-sm text-gray-500 mt-1">{m.label}</p>
-          </div>
+          <StatCard
+            key={m.label}
+            label={m.label}
+            icon={m.icon}
+            tone={m.tone}
+            value={m.value}
+            caption={<ChangeCaption value={m.change} invert={m.invert} points={m.points} unit="직전 기간 대비" />}
+          />
         ))}
       </motion.div>
 
       {/* 월별 트렌드 */}
       <div className="card mb-4 sm:mb-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">월별 지출 트렌드</h2>
+          <h2 className="card-title">월별 지출 트렌드</h2>
           <span className="flex items-center gap-2 text-xs text-gray-400">
-            <span className="w-4 border-t-2 border-dashed border-gray-400" />
+            <span className="w-4 border-t-2 border-dashed border-error-400" />
             {scope === 'mine' ? '월 한도' : '월 예산'}
           </span>
         </div>
@@ -218,65 +224,27 @@ const Analytics: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* 부서별 예산 */}
         <div className="card">
-          <CardTitle icon={BuildingOfficeIcon} title="부서별 예산 사용" />
-          <div className="space-y-5">
-            {deptRows.map((d) => (
-              <div key={d.id}>
-                <div className="flex justify-between items-center mb-2 gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium text-gray-900">{d.name}</span>
-                    {d.pct >= 100 && <ExclamationTriangleIcon className="h-4 w-4 text-error-600" aria-label="예산 초과" />}
-                  </div>
-                  <span className="text-xs text-gray-500 text-right">
-                    {won(d.spent)} / {won(d.budget)}
-                  </span>
-                </div>
-                <div className="progress-bar">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      d.pct >= 100 ? 'bg-error-500' : d.pct >= state.settings.alertThreshold ? 'bg-warning-500' : 'bg-gray-900'
-                    }`}
-                    style={{ width: `${Math.min(100, d.pct)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-gray-400 mt-1.5">
-                  <span>
-                    {d.pct.toFixed(0)}% 사용 · 승인자 {d.approver}
-                  </span>
-                  <span>{d.budget >= d.spent ? `${won(d.budget - d.spent)} 남음` : `${won(d.spent - d.budget)} 초과`}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+          <CardTitle icon={BuildingOfficeIcon} title="부서별 예산 및 지출 현황" />
+          <BudgetBars
+            alertThreshold={state.settings.alertThreshold}
+            rows={deptRows.map((d) => ({ name: d.name, spent: d.spent, budget: Math.round(d.budget), note: `승인자 ${d.approver}` }))}
+          />
         </div>
 
         {/* 카테고리별 */}
         <div className="card">
-          <CardTitle icon={ChartBarIcon} title="카테고리별 지출" />
+          <CardTitle icon={ChartBarIcon} title="카테고리별 지출 현황" hint="전체 지출 대비 비중" />
           {categoryRows.length === 0 ? (
             <p className="text-sm text-gray-400 py-10 text-center">해당 기간에 지출이 없습니다.</p>
           ) : (
-            <div className="space-y-3.5">
-              {categoryRows.map((c) => (
-                <div key={c.id} className="group" title={`${c.name} · ${c.account} ${won(c.amount)}`}>
-                  <div className="flex items-baseline justify-between mb-1.5 gap-3">
-                    <span className="text-sm font-medium text-gray-900">
-                      {c.name} <span className="text-xs text-gray-400 font-normal">{c.account}</span>
-                    </span>
-                    <span className="text-sm text-gray-900">
-                      <span className="text-xs text-gray-400 mr-2">{((c.amount / total) * 100).toFixed(0)}%</span>
-                      <span className="font-semibold">{won(c.amount)}</span>
-                    </span>
-                  </div>
-                  <div className="h-2 rounded-full bg-gray-100">
-                    <div
-                      className="h-full rounded-full bg-flow-600 group-hover:bg-flow-700 transition-colors"
-                      style={{ width: `${(c.amount / maxCategory) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <CategoryChart
+              data={categoryRows.map((c) => ({
+                name: c.name,
+                sub: c.account,
+                amount: c.amount,
+                percentage: Math.round((c.amount / total) * 100),
+              }))}
+            />
           )}
         </div>
 
@@ -288,7 +256,7 @@ const Analytics: React.FC = () => {
               <div key={p.id}>
                 <div className="flex justify-between items-center mb-2 gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+                    <p className="text-sm font-semibold text-gray-800 truncate">{p.name}</p>
                     <p className="text-xs text-gray-400">
                       {state.departments.find((d) => d.id === p.departmentId)?.name} · 이번 기간 {won(p.periodSpent)}
                     </p>
@@ -297,7 +265,7 @@ const Analytics: React.FC = () => {
                 </div>
                 <div className="progress-bar">
                   <div
-                    className={`h-full rounded-full ${p.pct >= 100 ? 'bg-error-500' : 'bg-gray-900'}`}
+                    className={`h-full rounded-full ${p.pct >= 100 ? 'bg-error-400' : 'bg-flow-400'}`}
                     style={{ width: `${Math.min(100, p.pct)}%` }}
                   />
                 </div>
@@ -317,17 +285,17 @@ const Analytics: React.FC = () => {
             {flowIdRanking.map(([flowId, amount], i) => (
               <li key={flowId} className={`flex items-center gap-3 rounded-xl px-3 py-2 ${mine.has(flowId) ? 'bg-flow-50' : 'bg-gray-50'}`}>
                 <span className="text-xs text-gray-400 w-4 tabular-nums">{i + 1}</span>
-                <span className="font-mono text-sm font-semibold text-gray-900 flex-1">
+                <span className="text-sm font-bold tracking-wide text-gray-900 flex-1">
                   {flowId}
-                  {mine.has(flowId) && <span className="ml-2 badge badge-accent font-sans">나</span>}
+                  {mine.has(flowId) && <span className="ml-2 badge badge-accent tracking-normal">나</span>}
                 </span>
-                <span className="text-sm font-semibold text-gray-900">{won(amount)}</span>
+                <span className="text-sm font-semibold text-gray-900 tabular-nums">{won(amount)}</span>
               </li>
             ))}
             {!flowIdRanking.length && <li className="text-sm text-gray-400">데이터 없음</li>}
           </ol>
 
-          <h3 className="text-sm font-medium text-gray-900 mb-3">자주 쓴 가맹점</h3>
+          <h3 className="text-xs font-semibold text-gray-400 mb-3">자주 쓴 가맹점</h3>
           <ul className="space-y-2">
             {topMerchants.map(([name, v]) => (
               <li key={name} className="flex justify-between text-sm gap-3">
@@ -344,39 +312,42 @@ const Analytics: React.FC = () => {
 
       {/* 최근 거래 */}
       <div className="card mt-4 sm:mt-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">최근 거래 내역</h2>
-          <Link to={txLink} className="text-sm text-flow-600 hover:text-flow-700 font-medium">
-            전체 보기 ({txs.length})
+        <div className="flex items-start justify-between mb-4 gap-3">
+          <div>
+            <h2 className="card-title">최근 거래 내역</h2>
+            <p className="text-xs text-gray-400 mt-1">계정과목·부서는 결제 시점에 자동 분류됩니다</p>
+          </div>
+          <Link
+            to={txLink}
+            className="inline-flex items-center gap-0.5 text-sm text-gray-500 hover:text-gray-900 font-medium whitespace-nowrap"
+          >
+            전체 결제 내역 {txs.length} <ChevronRightIcon className="h-4 w-4 text-flow-500" />
           </Link>
         </div>
-        <div className="overflow-x-auto -mx-6 sm:mx-0">
+        <div className="overflow-x-auto -mx-6 sm:-mx-7 px-3 sm:px-4">
           <table className="min-w-full">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="px-6 sm:px-0 py-3 text-left text-xs font-medium text-gray-400">가맹점</th>
-                <th className="py-3 text-left text-xs font-medium text-gray-400">금액</th>
-                <th className="hidden sm:table-cell py-3 text-left text-xs font-medium text-gray-400 pl-6">부서</th>
-                <th className="hidden md:table-cell py-3 text-left text-xs font-medium text-gray-400 pl-6">계정과목</th>
-                <th className="hidden lg:table-cell py-3 text-left text-xs font-medium text-gray-400 pl-6">Flow ID</th>
-                <th className="py-3 text-left text-xs font-medium text-gray-400 pl-6 pr-6 sm:pr-0">날짜</th>
+              <tr>
+                <th className="table-head">결제일</th>
+                <th className="table-head">가맹점</th>
+                <AutoColumnsPill labels={['계정과목', '부서']} />
+                <th className="table-head hidden lg:table-cell">Flow ID</th>
+                <th className="table-head">결제 금액</th>
               </tr>
             </thead>
             <tbody>
               {txs.slice(0, 8).map((t) => (
-                <tr key={t.id} className="border-b border-gray-100 last:border-0">
-                  <td className="px-6 sm:px-0 py-3.5 text-sm font-medium text-gray-900">
-                    <Link to={`/transactions?id=${t.id}`} className="block truncate max-w-28 sm:max-w-none hover:text-flow-600">
+                <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="table-cell tabular-nums text-gray-500">{formatDate(t.date).replace(/-/g, '.')}</td>
+                  <td className="table-cell font-medium text-gray-900">
+                    <Link to={`/transactions?id=${t.id}`} className="block truncate max-w-32 sm:max-w-none mx-auto hover:text-flow-600">
                       {t.merchant}
                     </Link>
                   </td>
-                  <td className="py-3.5 text-sm text-gray-900 whitespace-nowrap">{won(t.amount)}</td>
-                  <td className="hidden sm:table-cell py-3.5 text-sm text-gray-500 pl-6">
-                    {state.departments.find((d) => d.id === t.departmentId)?.name}
-                  </td>
-                  <td className="hidden md:table-cell py-3.5 text-sm text-gray-500 pl-6">{categoryById(t.categoryId).account}</td>
-                  <td className="hidden lg:table-cell py-3.5 text-sm text-flow-600 font-mono pl-6">{t.flowId}</td>
-                  <td className="py-3.5 text-sm text-gray-500 pl-6 pr-6 sm:pr-0 whitespace-nowrap">{formatDate(t.date)}</td>
+                  <td className="table-cell w-28">{categoryById(t.categoryId).account}</td>
+                  <td className="table-cell w-28">{state.departments.find((d) => d.id === t.departmentId)?.name}</td>
+                  <td className="table-cell hidden lg:table-cell tracking-wide text-gray-500">{t.flowId}</td>
+                  <td className="table-cell font-semibold text-gray-900 tabular-nums">{t.amount.toLocaleString('ko-KR')}</td>
                 </tr>
               ))}
             </tbody>
@@ -388,27 +359,15 @@ const Analytics: React.FC = () => {
   );
 };
 
-const CardTitle: React.FC<{ icon: React.ElementType; title: string }> = ({ icon: Icon, title }) => (
+const CardTitle: React.FC<{ icon: React.ElementType; title: string; hint?: string }> = ({ icon: Icon, title, hint }) => (
   <div className="flex items-center gap-2.5 mb-6">
-    <div className="icon-container icon-container-muted w-9 h-9">
+    <div className="icon-container icon-container-accent w-9 h-9 rounded-xl">
       <Icon className="h-5 w-5" />
     </div>
-    <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+    <h2 className="card-title flex-1">{title}</h2>
+    {hint && <span className="text-xs text-gray-400">{hint}</span>}
   </div>
 );
-
-const ChangeBadge: React.FC<{ value: number | null; invert?: boolean; points?: boolean }> = ({ value, invert, points }) => {
-  if (value === null) return <span className="text-xs text-gray-400" title="직전 기간 데이터가 없습니다">비교 없음</span>;
-  if (Math.abs(value) < 0.5) return <span className="text-xs text-gray-400">변동 없음</span>;
-  const up = value > 0;
-  const good = invert ? !up : up;
-  return (
-    <span className={`text-xs font-medium ${good ? 'text-success-600' : 'text-error-600'}`} title="직전 동일 기간 대비">
-      {up ? '▲' : '▼'} {Math.abs(value).toFixed(0)}
-      {points ? '%p' : '%'}
-    </span>
-  );
-};
 
 interface MonthPoint {
   key: string;
@@ -433,14 +392,18 @@ const MonthlyChart: React.FC<{ data: MonthPoint[] }> = ({ data }) => {
       <div className="relative h-56 pl-14">
         {/* 눈금 */}
         {ticks.map((t) => (
-          <div key={t} className="absolute left-14 right-0 border-t border-gray-100" style={{ bottom: `${(t / max) * 100}%` }}>
+          <div
+            key={t}
+            className={`absolute left-14 right-0 border-t ${t === 0 ? 'border-gray-300' : 'border-dashed border-gray-200'}`}
+            style={{ bottom: `${(t / max) * 100}%` }}
+          >
             <span className="absolute -left-14 -translate-y-1/2 text-[11px] text-gray-400 w-12 text-right tabular-nums whitespace-nowrap">{wonShort(t)}</span>
           </div>
         ))}
         {/* 예산 기준선 */}
         {budget > 0 && (
           <div
-            className="absolute left-14 right-0 border-t-2 border-dashed border-gray-400 pointer-events-none z-10"
+            className="absolute left-14 right-0 border-t-2 border-dashed border-error-400 pointer-events-none z-10"
             style={{ bottom: `${(budget / max) * 100}%` }}
           />
         )}
@@ -450,7 +413,7 @@ const MonthlyChart: React.FC<{ data: MonthPoint[] }> = ({ data }) => {
             return (
               <div
                 key={d.key}
-                className="relative flex-1 h-full flex items-end justify-center cursor-default"
+                className="relative flex-1 h-full flex items-end justify-center cursor-default outline-none"
                 onMouseEnter={() => setHover(i)}
                 onMouseLeave={() => setHover(null)}
                 onFocus={() => setHover(i)}
@@ -458,9 +421,10 @@ const MonthlyChart: React.FC<{ data: MonthPoint[] }> = ({ data }) => {
                 tabIndex={0}
                 aria-label={`${d.label} ${won(d.spent)}`}
               >
+                <div className="absolute bottom-0 w-full max-w-[44px] h-full rounded-t bg-flow-50" />
                 <div
-                  className={`w-full max-w-[44px] rounded-t transition-colors ${
-                    over ? 'bg-warning-500' : d.current ? 'bg-flow-600' : hover === i ? 'bg-gray-700' : 'bg-gray-900'
+                  className={`relative w-full max-w-[44px] rounded-t transition-colors ${
+                    over ? 'bg-warning-400' : hover === i || d.current ? 'bg-flow-500' : 'bg-flow-300'
                   }`}
                   style={{ height: `${(d.spent / max) * 100}%`, minHeight: d.spent ? 2 : 0 }}
                 />
@@ -483,7 +447,7 @@ const MonthlyChart: React.FC<{ data: MonthPoint[] }> = ({ data }) => {
       <div className="flex gap-2 sm:gap-4 pl-14 mt-2">
         {data.map((d) => (
           <div key={d.key} className="flex-1 text-center">
-            <p className={`text-xs ${d.current ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>{d.label}</p>
+            <p className={`text-xs ${d.current ? 'text-gray-900 font-bold' : 'text-gray-400'}`}>{d.label}</p>
             <p className="text-[11px] text-gray-500 tabular-nums">{wonShort(d.spent)}</p>
             {d.budget > 0 && d.spent > d.budget && <p className="text-[10px] text-warning-700 font-medium">초과</p>}
           </div>

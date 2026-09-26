@@ -1,6 +1,7 @@
 // 표시·날짜 관련 공통 유틸
 
-export const won = (n: number): string => `₩${Math.round(n).toLocaleString('ko-KR')}`;
+// 발표자료 표기('217,500 원')를 따른다
+export const won = (n: number): string => `${Math.round(n).toLocaleString('ko-KR')} 원`;
 
 /** 금액을 만 원 단위로 축약 (차트 라벨 등) */
 export const wonShort = (n: number): string => {

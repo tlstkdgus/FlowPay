@@ -25,7 +25,7 @@ import { Field, Modal, Page, PageHeader, Toggle, useToast } from './ui';
 
 const Section: React.FC<{ title: string; description?: string; children: React.ReactNode }> = ({ title, description, children }) => (
   <section className="card mb-4 sm:mb-6">
-    <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+    <h2 className="card-title">{title}</h2>
     {description && <p className="text-sm text-gray-500 mt-1">{description}</p>}
     <div className="mt-6">{children}</div>
   </section>
@@ -88,14 +88,14 @@ const Settings: React.FC = () => {
 
   return (
     <Page wide={false}>
-      <PageHeader title="설정" description="Flow ID와 인증 수단, 결제 정책, 부서 예산을 관리합니다." />
+      <PageHeader eyebrow="Settings" title="설정" description="Flow ID와 인증 수단, 결제 정책, 부서 예산을 관리합니다." />
 
       {/* Flow ID */}
       <Section title="Flow ID" description="개인정보 대신 결제·전표에 기록되는 익명 토큰입니다. 유출이 의심되면 재발급하세요.">
         <div className="card-muted p-5 flex items-center justify-between gap-4 mb-4">
           <div>
             <p className="text-xs text-gray-400 mb-1">현재 Flow ID</p>
-            <p className="text-3xl font-mono font-semibold tracking-widest text-gray-900">{profile.flowId}</p>
+            <p className="text-3xl font-bold tracking-[0.2em] text-gray-900">{profile.flowId}</p>
           </div>
           <div className="flex gap-2">
             <button onClick={copyFlowId} className="btn-secondary p-3" aria-label="Flow ID 복사">
@@ -108,7 +108,7 @@ const Settings: React.FC = () => {
         </div>
         {profile.previousFlowIds.length > 0 && (
           <p className="text-xs text-gray-500 mb-4">
-            이전 Flow ID: <span className="font-mono">{profile.previousFlowIds.join(', ')}</span> — 과거 거래는 이전 토큰으로 유지되며 내 거래로 함께 조회됩니다.
+            이전 Flow ID: <span className="tracking-wide font-medium">{profile.previousFlowIds.join(', ')}</span> — 과거 거래는 이전 토큰으로 유지되며 내 거래로 함께 조회됩니다.
           </p>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -142,7 +142,7 @@ const Settings: React.FC = () => {
         <div className="flex items-center gap-2 text-sm mb-5">
           <span
             className={`w-1.5 h-1.5 rounded-full ${
-              server === undefined ? 'bg-gray-300' : server && server.originAllowed ? 'bg-success-500' : 'bg-error-500'
+              server === undefined ? 'bg-gray-300' : server && server.originAllowed ? 'bg-flow-500' : 'bg-error-500'
             }`}
           />
           <span className="text-gray-600">
@@ -188,7 +188,7 @@ const Settings: React.FC = () => {
         ) : (
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="icon-container icon-container-muted">
+              <div className="icon-container icon-container-accent">
                 <FingerPrintIcon className="h-5 w-5" />
               </div>
               <p className="text-sm text-gray-600">
