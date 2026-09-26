@@ -7,10 +7,6 @@ Flow ID 기반으로 결제 → 자동 분류 → 전표 생성 → 세무 처�
   <img src="docs/screenshots/dashboard.png" alt="FlowPay 대시보드" width="820" />
 </p>
 
-<p align="center">
-  <a href="https://flowpay.vercel.app">데모 바로가기</a>
-</p>
-
 ---
 
 ## 개요
