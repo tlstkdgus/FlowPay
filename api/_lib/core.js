@@ -69,7 +69,7 @@ const verifyToken = (token, type) => {
 /* ---------------- 출처(origin) 검증 ---------------- */
 
 const allowedOrigins = () => {
-  const list = new Set(['https://flowpay.vercel.app']);
+  const list = new Set(['https://flow-pay-seven.vercel.app']);
   (process.env.FLOWPAY_ALLOWED_ORIGINS || '')
     .split(',')
     .map((s) => s.trim())

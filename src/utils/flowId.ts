@@ -1,5 +1,5 @@
 // Flow ID: 개인정보 없이 사용자를 식별하는 익명 토큰
-// 혼동하기 쉬운 문자(0/O, 1/I/L)를 제외한 32자 알파벳에서 6자리를 무작위로 생성합니다.
+// 혼동하기 쉬운 문자(0/O, 1/I/L)를 제외한 31자 알파벳에서 6자리를 무작위로 생성합니다.
 
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
@@ -15,7 +15,14 @@ const randomBytes = (n: number): Uint8Array => {
 
 export const generateFlowId = (exclude: string[] = []): string => {
   for (;;) {
-    const id = Array.from(randomBytes(6), (b) => ALPHABET[b % ALPHABET.length]).join('');
+    // 256은 31로 나누어떨어지지 않으므로 248(=31×8) 이상인 바이트는 버려 문자별 확률을 같게 맞춥니다.
+    const chars: string[] = [];
+    while (chars.length < 6) {
+      Array.from(randomBytes(6 - chars.length)).forEach((b) => {
+        if (b < 248) chars.push(ALPHABET[b % ALPHABET.length]);
+      });
+    }
+    const id = chars.join('');
     if (!exclude.includes(id)) return id;
   }
 };
