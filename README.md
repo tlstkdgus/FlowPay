@@ -161,4 +161,4 @@ FlowPay/
 ## 배포
 
 - 저장소: <https://github.com/tlstkdgus/FlowPay>
-- 프로덕션: <https://flowpay.vercel.app>
+- 프로덕션: <https://flow-pay-seven.vercel.app>
